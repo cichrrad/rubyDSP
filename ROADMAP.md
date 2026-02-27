@@ -7,6 +7,7 @@ Before anyone can do math on audio, the audio has to be in the exact format thei
 * *Ruby API:* `track.to_mono!`
 
 
+> DONE
 * **Peak Amplitude:** * *What it is:* Scanning the entire float array to find the absolute highest value.
 * *Why it's useful:* Developers use this to "Normalize" audio (scaling the volume up so the loudest peak hits exactly `1.0` or `-1.0` without clipping).
 * *Ruby API:* `track.peak_amplitude`
