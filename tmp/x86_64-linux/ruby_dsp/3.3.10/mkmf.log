@@ -1,0 +1,59 @@
+find_header: checking for rice/rice.hpp in /usr/local/rvm/gems/default/gems/rice-4.11.2/include... -------------------- yes
+
+LD_LIBRARY_PATH=.:/usr/local/lib "g++ -o conftest -I/usr/local/include/ruby-3.3.0/x86_64-linux -I/usr/local/include/ruby-3.3.0/ruby/backward -I/usr/local/include/ruby-3.3.0 -I../../../../ext/ruby_dsp     conftest.cc  -L. -L/usr/local/lib -Wl,-rpath,/usr/local/lib -L. -fstack-protector-strong -rdynamic -Wl,-export-dynamic -Wl,--no-as-needed     -Wl,-rpath,/usr/local/lib -L/usr/local/lib -lruby  -lm -lpthread  -lc"
+checked program was:
+/* begin */
+1: #include "ruby.h"
+2: 
+3: int main(int argc, char **argv)
+4: {
+5:   return !!argv[argc];
+6: }
+/* end */
+
+LD_LIBRARY_PATH=.:/usr/local/lib "g++ -I/usr/local/include/ruby-3.3.0/x86_64-linux -I/usr/local/include/ruby-3.3.0/ruby/backward -I/usr/local/include/ruby-3.3.0 -I../../../../ext/ruby_dsp     -DRICE_VERSION_MAJOR=4 -DRICE_VERSION_MINOR=11 -DRICE_VERSION_PATCH=2 -std=c++17   -c conftest.cc"
+conftest.cc:3:10: fatal error: rice/rice.hpp: No such file or directory
+    3 | #include <rice/rice.hpp>
+      |          ^~~~~~~~~~~~~~~
+compilation terminated.
+checked program was:
+/* begin */
+1: #include "ruby.h"
+2: 
+3: #include <rice/rice.hpp>
+/* end */
+
+LD_LIBRARY_PATH=.:/usr/local/lib "g++ -I/usr/local/include/ruby-3.3.0/x86_64-linux -I/usr/local/include/ruby-3.3.0/ruby/backward -I/usr/local/include/ruby-3.3.0 -I../../../../ext/ruby_dsp     -DRICE_VERSION_MAJOR=4 -DRICE_VERSION_MINOR=11 -DRICE_VERSION_PATCH=2 -std=c++17  -I/usr/local/rvm/gems/default/gems/rice-4.11.2/include -c conftest.cc"
+checked program was:
+/* begin */
+1: #include "ruby.h"
+2: 
+3: #include <rice/rice.hpp>
+/* end */
+
+--------------------
+
+have_library: checking for -lstdc++fs... -------------------- yes
+
+LD_LIBRARY_PATH=.:/usr/local/lib "g++ -o conftest -I/usr/local/include/ruby-3.3.0/x86_64-linux -I/usr/local/include/ruby-3.3.0/ruby/backward -I/usr/local/include/ruby-3.3.0 -I../../../../ext/ruby_dsp -I/usr/local/rvm/gems/default/gems/rice-4.11.2/include     conftest.cc  -L. -L/usr/local/lib -Wl,-rpath,/usr/local/lib -L. -fstack-protector-strong -rdynamic -Wl,-export-dynamic -Wl,--no-as-needed     -Wl,-rpath,/usr/local/lib -L/usr/local/lib -lruby -lstdc++fs  -lm -lpthread  -lc"
+checked program was:
+/* begin */
+ 1: #include "ruby.h"
+ 2: 
+ 3: /*top*/
+ 4: extern int t(void);
+ 5: int main(int argc, char **argv)
+ 6: {
+ 7:   if (argc > 1000000) {
+ 8:     int (* volatile tp)(void)=(int (*)(void))&t;
+ 9:     printf("%d", (*tp)());
+10:   }
+11: 
+12:   return !!argv[argc];
+13: }
+14: 
+15: int t(void) { ; return 0; }
+/* end */
+
+--------------------
+
