@@ -1,22 +1,64 @@
 #include <rice/rice.hpp>
 #include <rice/stl.hpp>
 #include <string>
+#include <stdexcept>
+
+#define MINIAUDIO_IMPLEMENTATION
+#include "vendor/miniaudio.h"
 
 using namespace Rice;
 
 struct AudioTrack
 {
-  std::string filename;
-  std::string trackname;
-  int sample_rate;
+    std::string filename;
+    int sample_rate = -1;
+    int channels = -1;
 
-  AudioTrack(std::string f, std::string t, int s)
-      : filename(f), trackname(t), sample_rate(s) {}
+    std::vector<float> samples;
 
-  std::string play()
-  {
-    return "Playing '" + trackname + "' from file '" + filename + "' at sample rate of " + std::to_string(sample_rate) + "Hz.";
-  }
+    AudioTrack(std::string f) : filename(f)
+    {
+        ma_decoder decoder;
+        ma_result result;
+
+        ma_decoder_config config = ma_decoder_config_init(ma_format_f32, 0, 0);
+
+        result = ma_decoder_init_file(filename.c_str(), &config, &decoder);
+
+        if (result != MA_SUCCESS)
+        {
+            throw std::runtime_error("RubyDSP: Could not open audio file: " + filename);
+        }
+
+        sample_rate = decoder.outputSampleRate;
+        channels = decoder.outputChannels;
+
+        ma_uint64 totalFrames;
+        if (ma_decoder_get_length_in_pcm_frames(&decoder, &totalFrames) != MA_SUCCESS)
+        {
+            ma_decoder_uninit(&decoder);
+            throw std::runtime_error("RubyDSP: Could not determine track length.");
+        }
+
+        samples.resize(totalFrames * channels);
+
+        ma_uint64 framesRead;
+        if (ma_decoder_read_pcm_frames(&decoder, samples.data(), totalFrames, &framesRead) != MA_SUCCESS)
+        {
+            ma_decoder_uninit(&decoder);
+            throw std::runtime_error("RubyDSP: Failed to read PCM data.");
+        }
+
+        ma_decoder_uninit(&decoder);
+    }
+
+    float duration()
+    {
+        return (float)samples.size() / (sample_rate * channels);
+    }
+
+    // Root Mean Square (RMS) Energy
+    //  TODO
 };
 
 extern "C"
@@ -27,14 +69,12 @@ extern "C"
 #endif
     void Init_ruby_dsp()
 {
-  Module rb_mRubyDSP = define_module("RubyDSP");
-  Data_Type<AudioTrack> rb_cAudioTrack = define_class_under<AudioTrack>(rb_mRubyDSP, "AudioTrack")
-                                             .define_constructor(Constructor<AudioTrack, std::string, std::string, int>(),
-                                                                 Arg("file_name") = (std::string) "default.wav",
-                                                                 Arg("track_name") = (std::string) "Untitled",
-                                                                 Arg("sample_rate") = 44100)
-                                             .define_attr("file_name", &AudioTrack::filename)
-                                             .define_attr("track_name", &AudioTrack::trackname)
-                                             .define_attr("sample_rate", &AudioTrack::sample_rate)
-                                             .define_method("play", &AudioTrack::play);
+    Module rb_mRubyDSP = define_module("RubyDSP");
+    Data_Type<AudioTrack> rb_cAudioTrack = define_class_under<AudioTrack>(rb_mRubyDSP, "AudioTrack")
+                                               .define_constructor(Constructor<AudioTrack, std::string>(),
+                                                                   Arg("file_name") = (std::string) "default.wav")
+                                               .define_attr("file_name", &AudioTrack::filename, Rice::AttrAccess::Read)
+                                               .define_attr("channels", &AudioTrack::channels, Rice::AttrAccess::Read)
+                                               .define_attr("sample_rate", &AudioTrack::sample_rate, Rice::AttrAccess::Read)
+                                               .define_method("duration", &AudioTrack::duration);
 }
