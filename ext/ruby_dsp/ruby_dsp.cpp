@@ -1,8 +1,11 @@
 #include <rice/rice.hpp>
 #include <rice/stl.hpp>
+
 #include <string>
 #include <stdexcept>
 #include <cmath>
+#include <sstream>
+#include <iomanip>
 
 #define MINIAUDIO_IMPLEMENTATION
 #include "vendor/miniaudio.h"
@@ -21,19 +24,18 @@ struct AudioTrack
     unsigned long long sample_count = 0;
     // ==================================
 
-
-    AudioTrack(std::string f, unsigned int target_channels = 0) : filename(f)
+    AudioTrack(std::string f, unsigned int target_channels = 0, unsigned int target_sample_rate = 0) : filename(f)
     {
         ma_decoder decoder;
         ma_result result;
 
-        ma_decoder_config config = ma_decoder_config_init(ma_format_f32, (ma_uint32)target_channels, 0);
+        ma_decoder_config config = ma_decoder_config_init(ma_format_f32, (ma_uint32)target_channels, (ma_uint32)target_sample_rate);
 
         result = ma_decoder_init_file(filename.c_str(), &config, &decoder);
 
         if (result != MA_SUCCESS)
         {
-            throw std::runtime_error("RubyDSP: Could not open audio file: " + filename);
+            throw std::runtime_error("RubyDSP: Could not process audio file: " + filename);
         }
 
         sample_rate = decoder.outputSampleRate;
@@ -62,7 +64,7 @@ struct AudioTrack
 
     float duration()
     {
-        return (float)samples.size() / (sample_rate * channels);
+        return (float)sample_count / (sample_rate * channels);
     }
 
     float peak_amplitude()
@@ -75,9 +77,106 @@ struct AudioTrack
         return max_val;
     }
 
+    bool to_mono_bang()
+    {
+        if (is_mono)
+        {
+            return false; // no-op
+        }
+
+        if (channels < 1)
+        {
+            throw std::runtime_error("RubyDSP: Wrong number of channels (" + std::to_string(channels) + ")");
+        }
+
+        unsigned long long new_size = sample_count / channels;
+        std::vector<float> mono_samples;
+        mono_samples.reserve(new_size);
+
+        // mean calculation pass
+        for (unsigned long long i = 0; i < new_size; ++i)
+        {
+            float sum = 0.0f;
+            // frame pass
+            for (int c = 0; c < channels; ++c)
+            {
+                sum += samples[i * channels + c];
+            }
+            mono_samples.push_back(sum / channels);
+        }
+
+        // replace samples with mono
+        samples = std::move(mono_samples);
+        channels = 1;
+        is_mono = true;
+        sample_count = samples.size();
+        return true;
+    }
+
+    bool resample_bang(unsigned int target_rate = 0)
+    {
+        if (target_rate == 0 || target_rate == sample_rate)
+        {
+            return false; // no-op
+        }
+
+        // TODO: add better, linear will have to do for now
+        ma_resampler_config config = ma_resampler_config_init(
+            ma_format_f32,
+            (ma_uint32)channels,
+            (ma_uint32)sample_rate,
+            (ma_uint32)target_rate,
+            ma_resample_algorithm_linear);
+
+        ma_resampler resampler;
+        if (ma_resampler_init(&config, NULL, &resampler) != MA_SUCCESS)
+        {
+            throw std::runtime_error("RubyDSP: Failed to initialize resampler.");
+        }
+
+        // Calculate input/output frame counts
+        ma_uint64 input_frames = sample_count / channels;
+        ma_uint64 expected_output_frames = 0;
+
+        if (ma_resampler_get_expected_output_frame_count(&resampler, input_frames, &expected_output_frames) != MA_SUCCESS)
+        {
+            ma_resampler_uninit(&resampler, NULL);
+            throw std::runtime_error("RubyDSP: Failed to get expected output frame count.");
+        }
+
+        std::vector<float> resampled_data(expected_output_frames * channels);
+
+        // Process the audio
+        ma_uint64 frames_in = input_frames;
+        ma_uint64 frames_out = expected_output_frames;
+
+        if (ma_resampler_process_pcm_frames(&resampler, samples.data(), &frames_in, resampled_data.data(), &frames_out) != MA_SUCCESS)
+        {
+            ma_resampler_uninit(&resampler, NULL);
+            throw std::runtime_error("RubyDSP: Resampling failed during processing.");
+        }
+
+        ma_resampler_uninit(&resampler, NULL);
+
+        // Shrink buffer if the resampler output slightly fewer frames than expected
+        resampled_data.resize(frames_out * channels);
+
+        // Update internals
+        samples = std::move(resampled_data);
+        sample_rate = target_rate;
+        sample_count = samples.size();
+
+        return true;
+    }
+
     std::string to_s()
     {
-        return "['"+filename+"', "+std::to_string(channels)+" channel(s), "+std::to_string(sample_rate)+"Hz sample rate]";
+        std::ostringstream stream;
+        stream << "['" << filename << "', "
+               << std::fixed << std::setprecision(3) << duration() << "s duration, "
+               << channels << " channel(s), "
+               << sample_rate << "Hz sample rate]";
+        return stream.str();
     }
 };
 
@@ -91,9 +190,10 @@ extern "C"
 {
     Module rb_mRubyDSP = define_module("RubyDSP");
     Data_Type<AudioTrack> rb_cAudioTrack = define_class_under<AudioTrack>(rb_mRubyDSP, "AudioTrack")
-                                               .define_constructor(Constructor<AudioTrack, std::string, bool>(),
+                                               .define_constructor(Constructor<AudioTrack, std::string, unsigned int, unsigned int>(),
                                                                    Arg("file_name") = (std::string) "default.wav",
-                                                                   Arg("mono") = (bool)false)
+                                                                   Arg("target_channels") = (unsigned int)0,
+                                                                   Arg("target_sample_rate") = (unsigned int)0)
                                                // attributes
                                                .define_attr("file_name", &AudioTrack::filename, Rice::AttrAccess::Read)
                                                .define_attr("channels", &AudioTrack::channels, Rice::AttrAccess::Read)
@@ -102,5 +202,8 @@ extern "C"
                                                // methods
                                                .define_method("duration", &AudioTrack::duration)
                                                .define_method("peak_amp", &AudioTrack::peak_amplitude)
+                                               .define_method("to_mono!", &AudioTrack::to_mono_bang)
+                                               .define_method("resample!", &AudioTrack::resample_bang,
+                                                              Arg("target_rate") = (unsigned int)0)
                                                .define_method("to_s", &AudioTrack::to_s);
 }

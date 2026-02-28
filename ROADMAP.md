@@ -2,6 +2,7 @@
 
 Before anyone can do math on audio, the audio has to be in the exact format their algorithm expects.
 
+> DONE (Not for 5.1 stuff, but N-channel support)
 * **Mono Mixdown (Stereo to Mono):** Most audio analysis and ML models completely ignore stereo sound because processing two channels doubles the compute time.
 * *What it is:* A C++ method that averages the left and right channels into a single channel.
 * *Ruby API:* `track.to_mono!`
@@ -12,7 +13,7 @@ Before anyone can do math on audio, the audio has to be in the exact format thei
 * *Why it's useful:* Developers use this to "Normalize" audio (scaling the volume up so the loudest peak hits exactly `1.0` or `-1.0` without clipping).
 * *Ruby API:* `track.peak_amplitude`
 
-
+> DONE (only linear though, low quality but fast)
 * **Resampling (Crucial for ML):**
 * *What it is:* Changing a 44,100Hz CD-quality file into a 16,000Hz file.
 * *Why it's useful:* Almost all speech recognition AI (like Whisper) requires 16kHz audio. Doing this in Ruby is mathematically brutal; `miniaudio` can actually do this for us in C++ during the loading phase.
