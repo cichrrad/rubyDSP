@@ -169,6 +169,91 @@ struct AudioTrack
         return true;
     }
 
+    std::vector<float> rms()
+    {
+        if (samples.empty())
+        {
+            return {}; // should not happen
+        }
+
+        std::vector<float> result(channels, 0.0f);
+        unsigned long long per_channel_samples = sample_count / channels;
+
+        if (per_channel_samples == 0)
+        {
+            return result;
+        }
+
+        // Process each channel
+        for (int c = 0; c < channels; ++c)
+        {
+            double sum_sq = 0.0;
+
+            for (unsigned long long i = 0; i < per_channel_samples; ++i)
+            {
+                // Access the correct sample in the interleaved array
+                float s = samples[i * channels + c];
+                sum_sq += s * s;
+            }
+
+            result[c] = (float)std::sqrt(sum_sq / per_channel_samples);
+        }
+
+        return result;
+    }
+
+    std::vector<std::vector<float>> framed_rms(unsigned int frame_length = 2048, unsigned int hop_length = 512)
+    {
+        if (frame_length == 0 || hop_length == 0 || samples.empty())
+        {
+            return {};
+        }
+
+        unsigned long long per_channel_samples = sample_count / channels;
+
+        // Either SUPER SHORT track or SUPER LONG frame_length
+        // --> will be less than single full frame per channel
+        // --> fallback to rms wrapped to be 2D
+        if (per_channel_samples < frame_length)
+        {
+            std::vector<float> overall_rms = rms();
+
+            // wrap
+            std::vector<std::vector<float>> fallback_result(channels, std::vector<float>(1, 0.0f));
+
+            for (int c = 0; c < channels; ++c)
+            {
+                fallback_result[c][0] = overall_rms[c];
+            }
+
+            return fallback_result;
+        }
+
+        // more than single full frame per channel (usual)
+        unsigned long long expected_frames = ((per_channel_samples - frame_length) / hop_length) + 1;
+        std::vector<std::vector<float>> result(channels, std::vector<float>(expected_frames, 0.0f));
+
+        for (int c = 0; c < channels; ++c)
+        {
+            for (unsigned long long i = 0; i < expected_frames; ++i)
+            {
+                unsigned long long start_sample = (i * hop_length) * channels + c;
+                double sum_sq = 0.0;
+
+                for (unsigned int j = 0; j < frame_length; ++j)
+                {
+                    float s = samples[start_sample + (j * channels)];
+                    // ^2 to flip all to positive
+                    sum_sq += s * s;
+                }
+
+                result[c][i] = (float)std::sqrt(sum_sq / frame_length);
+            }
+        }
+
+        return result;
+    }
+
     std::string to_s()
     {
         std::ostringstream stream;
@@ -205,5 +290,9 @@ extern "C"
                                                .define_method("to_mono!", &AudioTrack::to_mono_bang)
                                                .define_method("resample!", &AudioTrack::resample_bang,
                                                               Arg("target_rate") = (unsigned int)0)
+                                               .define_method("rms", &AudioTrack::rms)
+                                               .define_method("framed_rms", &AudioTrack::framed_rms,
+                                                              Arg("frame_length") = (unsigned int)2048,
+                                                              Arg("hop_length") = (unsigned int)512)
                                                .define_method("to_s", &AudioTrack::to_s);
 }

@@ -23,8 +23,9 @@ Before anyone can do math on audio, the audio has to be in the exact format thei
 ### Tier 2: Time-Domain Analysis (The Easy Math)
 
 These look at the audio waveform exactly as we loaded it (amplitude over time).
-
+>DONE
 * **RMS Energy**
+
 * **Zero-Crossing Rate (ZCR):**
 * *What it is:* Counting how many times the audio signal crosses the `0.0` line (going from positive to negative).
 * *Why it's useful:* High ZCR means the sound is "noisy" or "scratchy" (like a snare drum, or the 'S' sound in speech). Low ZCR means the sound is tonal/harmonic (like a bass guitar or a vowel). It is the easiest way to build a basic Voice Activity Detector (VAD).
