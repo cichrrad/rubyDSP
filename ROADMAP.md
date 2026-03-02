@@ -32,7 +32,7 @@ These look at the audio waveform exactly as we loaded it (amplitude over time).
 * *Why it's useful:* High ZCR means the sound is "noisy" or "scratchy" (like a snare drum, or the 'S' sound in speech). Low ZCR means the sound is tonal/harmonic (like a bass guitar or a vowel). It is the easiest way to build a basic Voice Activity Detector (VAD).
 * *Ruby API:* `track.zcr`
 
-
+> DONE
 * **Silence Trimming:**
 * *What it is:* Finding the first and last indices in the vector where the RMS energy exceeds a certain threshold, and cropping the array.
 * *Ruby API:* `track.trim_silence(threshold_db: -40)`

@@ -79,6 +79,27 @@ module RubyDSP
     def framed_zcr(frame_length = 2048, hop_length = 512)
     end
 
+    # Finds the start and end sample indices of non-silent audio.
+    #
+    # This scans the track's framed RMS energy and compares it against the global peak.
+    # Any frame that falls below the top_db threshold relative to the peak is considered silent.
+    #
+    # @param threshold_db [Float] The threshold in decibels below the peak RMS to consider as silence. Default is -60.0.
+    # @param frame_length [Integer] The number of samples per frame. Default is 2048.
+    # @param hop_length [Integer] The number of samples to advance each frame. Default is 512.
+    # @return [Array<Integer>] A 2-element array containing the [start_sample, end_sample] indices.
+    def silence_bounds(threshold_db = -60.0, frame_length = 2048, hop_length = 512)
+    end
+
+    # Destructively trims leading and trailing silence from the track's internal sample array.
+    #
+    # @param threshold_db [Float] The threshold in decibels below the peak RMS to consider as silence. Default is -60.0.
+    # @param frame_length [Integer] The number of samples per frame. Default is 2048.
+    # @param hop_length [Integer] The number of samples to advance each frame. Default is 512.
+    # @return [Boolean] true if the track was trimmed, false if no trimming occurred.
+    def trim_silence!(threshold_db = -60.0, frame_length = 2048, hop_length = 512)
+    end
+
     # @return [String] a formatted summary of the track.
     def to_s
     end

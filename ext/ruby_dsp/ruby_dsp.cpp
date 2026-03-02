@@ -334,6 +334,149 @@ struct AudioTrack
         return result;
     }
 
+    std::vector<unsigned long long> silence_bounds(float threshold_db = -60.0f, unsigned int frame_length = 2048, unsigned int hop_length = 512)
+    {
+        if (samples.empty())
+            return {0, 0};
+
+        // Get framed RMS
+        std::vector<std::vector<float>> rms_frames = framed_rms(frame_length, hop_length);
+        if (rms_frames.empty() || rms_frames[0].empty())
+        {
+            return {0, sample_count / channels};
+        }
+
+        unsigned long long num_frames = rms_frames[0].size();
+
+        // Find the global peak RMS across all frames and all channels
+        float max_rms = 0.0f;
+        for (int c = 0; c < channels; ++c)
+        {
+            for (unsigned long long i = 0; i < num_frames; ++i)
+            {
+                if (rms_frames[c][i] > max_rms)
+                {
+                    max_rms = rms_frames[c][i];
+                }
+            }
+        }
+
+        // Prevent errors on pure silence
+        if (max_rms < 1e-10f)
+            return {0, 0};
+
+        // Scan from the left to find the start frame
+        unsigned long long start_frame = 0;
+        bool found_start = false;
+
+        for (unsigned long long i = 0; i < num_frames; ++i)
+        {
+            float frame_max_rms = 0.0f;
+            for (int c = 0; c < channels; ++c)
+            {
+                if (rms_frames[c][i] > frame_max_rms)
+                {
+                    frame_max_rms = rms_frames[c][i];
+                }
+            }
+
+            // Convert to decibels relative to the peak RMS
+            float db = 20.0f * std::log10((frame_max_rms / max_rms) + 1e-10f);
+
+            if (db > threshold_db)
+            {
+                start_frame = i;
+                found_start = true;
+                break;
+            }
+        }
+
+        // Scan from the right to find the end frame
+        unsigned long long end_frame = num_frames > 0 ? num_frames - 1 : 0;
+        if (found_start)
+        {
+            for (long long i = num_frames - 1; i >= 0; --i)
+            {
+                float frame_max_rms = 0.0f;
+                for (int c = 0; c < channels; ++c)
+                {
+                    if (rms_frames[c][i] > frame_max_rms)
+                    {
+                        frame_max_rms = rms_frames[c][i];
+                    }
+                }
+
+                float db = 20.0f * std::log10((frame_max_rms / max_rms) + 1e-10f);
+
+                if (db > threshold_db)
+                {
+                    end_frame = i;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            return {0, 0}; // Track was entirely below threshold
+        }
+
+        // Convert frame indices back to sample indices
+        unsigned long long start_sample = start_frame * hop_length;
+        unsigned long long end_sample = end_frame * hop_length + frame_length;
+
+        unsigned long long per_channel_samples = sample_count / channels;
+
+        if (start_frame == 0)
+        {
+            start_sample = 0;
+        }
+
+        if (end_frame == num_frames - 1)
+        {
+            end_sample = per_channel_samples;
+        }
+        else if (end_sample > per_channel_samples)
+        {
+            end_sample = per_channel_samples;
+        }
+
+        return {start_sample, end_sample};
+    }
+
+    bool trim_silence_bang(float threshold_db = -60.0f, unsigned int frame_length = 2048, unsigned int hop_length = 512)
+    {
+        if (samples.empty())
+            return false;
+
+        std::vector<unsigned long long> bounds = silence_bounds(threshold_db, frame_length, hop_length);
+        unsigned long long start_sample = bounds[0];
+        unsigned long long end_sample = bounds[1];
+
+        unsigned long long per_channel_samples = sample_count / channels;
+
+        // No-op checks
+        if (start_sample == 0 && end_sample >= per_channel_samples)
+            return false;
+
+        // If the file is entirely silent, clear everything
+        if (start_sample == 0 && end_sample == 0)
+        {
+            samples.clear();
+            sample_count = 0;
+            return true;
+        }
+
+        // Slice the interleaved sample array
+        unsigned long long start_idx = start_sample * channels;
+        unsigned long long end_idx = end_sample * channels;
+
+        std::vector<float> trimmed_samples(samples.begin() + start_idx, samples.begin() + end_idx);
+        samples = std::move(trimmed_samples);
+        sample_count = samples.size();
+
+        return true;
+    }
+
     std::string to_s()
     {
         std::ostringstream stream;
@@ -378,6 +521,14 @@ extern "C"
                                                               Arg("hop_length") = (unsigned int)512)
                                                .define_method("zcr", &AudioTrack::zcr)
                                                .define_method("framed_zcr", &AudioTrack::framed_zcr,
+                                                              Arg("frame_length") = (unsigned int)2048,
+                                                              Arg("hop_length") = (unsigned int)512)
+                                               .define_method("silence_bounds", &AudioTrack::silence_bounds,
+                                                              Arg("threshold_db") = -60.0f,
+                                                              Arg("frame_length") = (unsigned int)2048,
+                                                              Arg("hop_length") = (unsigned int)512)
+                                               .define_method("trim_silence!", &AudioTrack::trim_silence_bang,
+                                                              Arg("threshold_db") = -60.0f,
                                                               Arg("frame_length") = (unsigned int)2048,
                                                               Arg("hop_length") = (unsigned int)512)
                                                .define_method("to_s", &AudioTrack::to_s);

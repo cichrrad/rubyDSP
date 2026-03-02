@@ -8,3 +8,5 @@ gem 'rake-compiler'
 gem 'rice'
 gem 'webrick'
 gem 'yard'
+
+gem 'wavefile'

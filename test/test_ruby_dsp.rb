@@ -173,4 +173,56 @@ class RubyDSPTest < Minitest::Test # rubocop:disable Style/Documentation
 
     refute_equal 0.0, zcr_data[0], 'ZCR missed the crossings! Check your 0.0f logic.'
   end
+
+  def test_silence_bounds_returns_array_of_indices
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+
+    # Using the default -60.0 dB threshold
+    bounds = track.silence_bounds(-60.0)
+
+    assert_kind_of Array, bounds.to_a
+    assert_equal 2, bounds.length
+    assert_kind_of Integer, bounds[0]
+    assert_kind_of Integer, bounds[1]
+
+    assert bounds[0] <= bounds[1], 'Start sample cannot be after end sample'
+    assert bounds[1] <= (track.sample_count / track.channels), 'End sample exceeds track length'
+  end
+
+  def test_trim_silence_bang_mutates_track
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+    original_duration = track.duration
+
+    result = track.trim_silence!(-10.0)
+
+    assert_equal true, result
+    assert track.duration < original_duration, 'Track duration should decrease after trimming'
+  end
+
+  def test_trim_silence_bang_no_op_on_low_threshold
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+    original_duration = track.duration
+
+    # this is so down it should not trim anything
+    result = track.trim_silence!(-999.0)
+
+    assert_equal false, result
+    assert_equal original_duration, track.duration, 'Track duration should not change on no-op'
+  end
+
+  def test_silence_bounds_on_exact_fixture
+    # 3-second mono file with silence on the sides
+    fixture = File.expand_path('fixtures/padded_beep.wav', __dir__)
+    track = RubyDSP::AudioTrack.new(fixture)
+
+    # Track is 44100 Hz.
+    # Silence: 0 to 44100
+    # Sine Wave: 44100 to 88200
+    # Silence: 88200 to 132300
+    bounds = track.silence_bounds(-60.0)
+
+    # within bounds, are we finding it ?
+    assert_in_delta 44_100, bounds[0], 2048, 'Start bound should be right at 1.0s'
+    assert_in_delta 88_200, bounds[1], 2048, 'End bound should be right at 2.0s'
+  end
 end

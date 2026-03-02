@@ -14,7 +14,7 @@ The project uses the "Ruby for API, C++ for compute" paradigm. All heavy data ar
 * **Bottom Level (Compute):** C++17
 * **Dependencies (Vendored in `ext/ruby_dsp/vendor/`):**
 * [miniaudio](https://miniaud.io/): Single-file C/C++ library for decoding audio files (`.wav`, `.mp3`) into raw PCM float arrays.
-* [KissFFT](https://github.com/mborgerding/kissfft): Lightweight C library for Fast Fourier Transforms (FFTs) to convert time-domain audio into frequency-domain data.
+* [KissFFT](https://github.com/mborgerding/kissfft): Lightweight C library for Fast Fourier Transforms (FFTs) to convert time-domain audio into frequency-domain data (not yet present).
 
 
 * **Build System:** `rake-compiler` with `extconf.rb` (generating Makefiles via `mkmf-rice`).
@@ -66,7 +66,7 @@ ruby_dsp/
 │   └── ruby_dsp/            
 │       ├── extconf.rb       # Uses mkmf-rice to generate the Makefile
 │       ├── ruby_dsp.cpp     # Main C++ file containing Init_ruby_dsp()
-│       └── vendor/          # miniaudio.h and kissfft source files
+│       └── vendor/          # miniaudio.h (potentially kissFFT)
 ├── ruby_dsp.gemspec         
 └── Rakefile                 # Configured with rake-compiler
 
