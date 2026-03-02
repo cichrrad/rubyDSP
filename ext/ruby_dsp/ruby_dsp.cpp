@@ -18,11 +18,8 @@ struct AudioTrack
     int sample_rate = -1;
     int channels = -1;
     bool is_mono = false;
-
-    // Hidden from Ruby =================
     std::vector<float> samples;
     unsigned long long sample_count = 0;
-    // ==================================
 
     AudioTrack(std::string f, unsigned int target_channels = 0, unsigned int target_sample_rate = 0) : filename(f)
     {
@@ -254,6 +251,89 @@ struct AudioTrack
         return result;
     }
 
+    std::vector<float> zcr()
+    {
+        if (samples.empty())
+            return {};
+
+        std::vector<float> result(channels, 0.0f);
+        unsigned long long per_channel_samples = sample_count / channels;
+
+        if (per_channel_samples < 2)
+            return result;
+
+        for (int c = 0; c < channels; ++c)
+        {
+            unsigned int crossings = 0;
+            for (unsigned long long j = 1; j < per_channel_samples; ++j)
+            {
+                float curr = samples[j * channels + c];
+                float prev = samples[(j - 1) * channels + c];
+
+                if ((curr >= 0.0f) != (prev >= 0.0f))
+                {
+                    crossings++;
+                }
+            }
+            result[c] = (float)crossings / per_channel_samples;
+        }
+        return result;
+    }
+
+    std::vector<std::vector<float>> framed_zcr(unsigned int frame_length = 2048, unsigned int hop_length = 512)
+    {
+
+        if (frame_length == 0 || hop_length == 0 || samples.empty())
+        {
+            return {};
+        }
+
+        unsigned long long per_channel_samples = sample_count / channels;
+
+        if (per_channel_samples < frame_length)
+        {
+            std::vector<float> overall_zcr = zcr();
+
+            // wrap
+            std::vector<std::vector<float>> fallback_result(channels, std::vector<float>(1, 0.0f));
+
+            for (int c = 0; c < channels; ++c)
+            {
+                fallback_result[c][0] = overall_zcr[c];
+            }
+
+            return fallback_result;
+        }
+
+        // Calculate number of frames
+        unsigned long long expected_frames = ((per_channel_samples - frame_length) / hop_length) + 1;
+
+        std::vector<std::vector<float>> result(channels, std::vector<float>(expected_frames, 0.0f));
+
+        for (int c = 0; c < channels; ++c)
+        {
+            for (unsigned long long i = 0; i < expected_frames; ++i)
+            {
+                unsigned long long start_sample = (i * hop_length) * channels + c;
+                unsigned int crossings = 0;
+
+                for (unsigned int j = 1; j < frame_length; ++j)
+                {
+                    unsigned long long curr = start_sample + (j * channels);
+                    unsigned long long prev = start_sample + ((j - 1) * channels);
+
+                    if ((samples[curr] >= 0.0f) != (samples[prev] >= 0.0f))
+                    {
+                        crossings++;
+                    }
+                }
+                // Normalize
+                result[c][i] = (float)crossings / frame_length;
+            }
+        }
+        return result;
+    }
+
     std::string to_s()
     {
         std::ostringstream stream;
@@ -282,6 +362,8 @@ extern "C"
                                                // attributes
                                                .define_attr("file_name", &AudioTrack::filename, Rice::AttrAccess::Read)
                                                .define_attr("channels", &AudioTrack::channels, Rice::AttrAccess::Read)
+                                               .define_attr("samples", &AudioTrack::samples, Rice::AttrAccess::Read)
+                                               .define_attr("sample_count", &AudioTrack::sample_count, Rice::AttrAccess::Read)
                                                .define_attr("sample_rate", &AudioTrack::sample_rate, Rice::AttrAccess::Read)
                                                .define_attr("is_mono?", &AudioTrack::is_mono, Rice::AttrAccess::Read)
                                                // methods
@@ -292,6 +374,10 @@ extern "C"
                                                               Arg("target_rate") = (unsigned int)0)
                                                .define_method("rms", &AudioTrack::rms)
                                                .define_method("framed_rms", &AudioTrack::framed_rms,
+                                                              Arg("frame_length") = (unsigned int)2048,
+                                                              Arg("hop_length") = (unsigned int)512)
+                                               .define_method("zcr", &AudioTrack::zcr)
+                                               .define_method("framed_zcr", &AudioTrack::framed_zcr,
                                                               Arg("frame_length") = (unsigned int)2048,
                                                               Arg("hop_length") = (unsigned int)512)
                                                .define_method("to_s", &AudioTrack::to_s);

@@ -125,4 +125,52 @@ class RubyDSPTest < Minitest::Test # rubocop:disable Style/Documentation
     assert_equal 1, fallback_data[0].length
     assert_equal 1, fallback_data[1].length
   end
+
+  def test_zcr_returns_array_per_channel
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+    zcr_data = track.zcr
+
+    assert zcr_data.respond_to?(:to_a)
+    assert_equal track.channels, zcr_data.length
+
+    assert zcr_data[0] >= 0.0
+    assert zcr_data[0] <= 1.0
+    assert zcr_data[1] >= 0.0
+    assert zcr_data[1] <= 1.0
+  end
+
+  def test_framed_zcr_returns_2d_array
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+    framed_data = track.framed_zcr(2048, 512)
+
+    assert_equal track.channels, framed_data.length
+
+    assert framed_data[0].respond_to?(:to_a)
+
+    assert framed_data[0][0] >= 0.0
+    assert framed_data[0][0] <= 1.0
+  end
+
+  def test_framed_zcr_edge_cases
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+
+    assert_equal [], track.framed_zcr(0, 512).to_a
+    assert_equal [], track.framed_zcr(2048, 0).to_a
+
+    large_frame = track.sample_rate * 600
+    fallback_data = track.framed_zcr(large_frame, 512)
+
+    assert_equal track.channels, fallback_data.length
+    assert_equal 1, fallback_data[0].length
+    assert_equal 1, fallback_data[1].length
+  end
+
+  def test_exact_zero_crossing_logic
+    zero_fixture = File.expand_path('fixtures/exact_zero.wav', __dir__)
+
+    track = RubyDSP::AudioTrack.new(zero_fixture)
+    zcr_data = track.zcr
+
+    refute_equal 0.0, zcr_data[0], 'ZCR missed the crossings! Check your 0.0f logic.'
+  end
 end

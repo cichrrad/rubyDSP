@@ -65,6 +65,20 @@ module RubyDSP
     def framed_rms(frame_length = 2048, hop_length = 512)
     end
 
+    # Calculates the Zero Crossing Rate (ZCR) for the entire track, per channel.
+    #
+    # @return [Array<Float>] An array containing the ZCR value for each channel.
+    def zcr
+    end
+
+    # Calculates the framed Zero Crossing Rate (ZCR) over time.
+    #
+    # @param frame_length [Integer] The number of samples per frame.
+    # @param hop_length [Integer] The number of samples to advance each frame.
+    # @return [Array<Array<Float>>] A 2D array of ZCR values `[channel][frame]`.
+    def framed_zcr(frame_length = 2048, hop_length = 512)
+    end
+
     # @return [String] a formatted summary of the track.
     def to_s
     end
