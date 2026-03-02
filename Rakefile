@@ -13,3 +13,19 @@ end
 
 desc 'Run tests'
 task test: :compile
+
+namespace :doc do
+  desc 'Generate static HTML documentation in the doc/ folder'
+  task :generate do
+    puts 'Generating YARD documentation...'
+    sh 'yard doc'
+  end
+
+  desc 'Start the YARD documentation server with live reload'
+  task :server do
+    puts 'Starting YARD live server...'
+    puts 'Open http://localhost:8808 in your browser.'
+    puts 'Press Ctrl+C to stop.'
+    exec 'yard server --reload'
+  end
+end
