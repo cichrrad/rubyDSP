@@ -1,4 +1,4 @@
-# RubyDSP 🎛️
+# RubyDSP
 
 > 🚧 **Status:** This project is currently in early development. It is fully functional, but API changes are expected.
 
