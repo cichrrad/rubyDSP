@@ -1,6 +1,10 @@
 tmp
 pkg
-*.so
 Gemfile.lock
-.*
 doc
+.*
+*.gem
+*.o
+*.so
+*.bundle
+Makefile
