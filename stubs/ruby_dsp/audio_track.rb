@@ -24,6 +24,30 @@ module RubyDSP
     def initialize(file_name = 'default.wav', target_channels = 0, target_sample_rate = 0)
     end
 
+    # Saves the audio track to disk.
+    #
+    # The format can be inferred from the `out_file` extension, or explicitly forced
+    # via the `format` argument. If no extension or format is provided, it defaults
+    # to saving as a WAV file and will append the `.wav` extension automatically.
+    #
+    # Note: Currently, only the WAV format (`:wav`) is supported for encoding.
+    #
+    # @example Save with inferred extension
+    #   track.save_track("output.wav")
+    #
+    # @example Save without extension (auto-appends .wav)
+    #   track.save_track("my_beat")
+    #
+    # @example Force format on an unknown extension
+    #   track.save_track("audio.data", :wav)
+    #
+    # @param out_file [String] The destination path and filename.
+    # @param format [Symbol] Optional. Forces a specific format (e.g., `:wav`). Defaults to `:auto`.
+    # @return [Boolean] true if the file was successfully written.
+    # @raise [RuntimeError] if the track is empty, encoder fails, or an unsupported format is requested.
+    def save_track(out_file, format = :auto)
+    end
+
     # Calculates the total duration of the track.
     #
     # @return [Float] duration in seconds.

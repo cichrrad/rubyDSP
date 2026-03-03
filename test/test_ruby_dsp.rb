@@ -225,4 +225,80 @@ class RubyDSPTest < Minitest::Test # rubocop:disable Style/Documentation
     assert_in_delta 44_100, bounds[0], 2048, 'Start bound should be right at 1.0s'
     assert_in_delta 88_200, bounds[1], 2048, 'End bound should be right at 2.0s'
   end
+
+  def test_save_track_with_explicit_wav_extension
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+
+    Dir.mktmpdir do |dir|
+      out_path = File.join(dir, 'output.wav')
+      result = track.save_track(out_path)
+
+      assert_equal true, result
+      assert File.exist?(out_path), "File should be created at #{out_path}"
+
+      # Load it back to verify the data survived the round trip
+      saved_track = RubyDSP::AudioTrack.new(out_path)
+      assert_equal track.channels, saved_track.channels
+      assert_equal track.sample_rate, saved_track.sample_rate
+      assert_equal track.samples.size, saved_track.samples.size
+      # miniaudio might pad a tiny bit depending on the encoder
+      assert_in_delta track.duration, saved_track.duration, 0.01
+    end
+  end
+
+  def test_save_track_auto_appends_wav_extension
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+
+    Dir.mktmpdir do |dir|
+      base_path = File.join(dir, 'auto_appended_output')
+
+      # Should return true and append .wav
+      assert_equal true, track.save_track(base_path)
+
+      expected_path = "#{base_path}.wav"
+      assert File.exist?(expected_path), 'The .wav extension should have been appended'
+    end
+  end
+
+  def test_save_track_with_forced_format_symbol
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+
+    Dir.mktmpdir do |dir|
+      out_path = File.join(dir, 'weird_extension.data')
+
+      # Force it to save as WAV and keep .data
+      result = track.save_track(out_path, :wav)
+
+      assert_equal true, result
+      assert File.exist?(out_path), 'File should be saved exactly as requested'
+      refute File.exist?("#{out_path}.wav"), 'It should not double-append extensions if user forces format'
+
+      saved_track = RubyDSP::AudioTrack.new(out_path)
+      assert_equal track.sample_rate, saved_track.sample_rate
+    end
+  end
+
+  def test_save_track_raises_on_unsupported_formats
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+
+    Dir.mktmpdir do |dir|
+      # Test string extension inference
+      error = assert_raises(RuntimeError) do
+        track.save_track(File.join(dir, 'output.mp3'))
+      end
+      assert_match(/mp3 encoding is not yet supported/, error.message)
+
+      # Test symbol forcing
+      error2 = assert_raises(RuntimeError) do
+        track.save_track(File.join(dir, 'output'), :flac)
+      end
+      assert_match(/flac encoding is not yet supported/, error2.message)
+
+      # Test total gibberish
+      error3 = assert_raises(RuntimeError) do
+        track.save_track(File.join(dir, 'output'), :potato)
+      end
+      assert_match(/Unknown format/, error3.message)
+    end
+  end
 end

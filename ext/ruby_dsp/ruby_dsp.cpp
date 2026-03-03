@@ -6,11 +6,23 @@
 #include <cmath>
 #include <sstream>
 #include <iomanip>
+#include <algorithm>
 
 #define MINIAUDIO_IMPLEMENTATION
 #include "vendor/miniaudio.h"
 
 using namespace Rice;
+
+std::string get_extension(const std::string &filename)
+{
+    size_t dot_pos = filename.find_last_of('.');
+    if (dot_pos == std::string::npos)
+        return ""; // No dot found
+
+    std::string ext = filename.substr(dot_pos + 1);
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    return ext;
+}
 
 struct AudioTrack
 {
@@ -57,6 +69,83 @@ struct AudioTrack
         }
 
         ma_decoder_uninit(&decoder);
+    }
+
+    bool save_track(const std::string &outFile, Rice::Symbol format_sym = Rice::Symbol("auto"))
+    {
+        std::string final_path = outFile;
+        std::string format = format_sym.str();
+        std::string ext = get_extension(final_path);
+
+        if (format == "auto")
+        {
+            if (ext.empty())
+            {
+                format = "wav";
+                final_path += ".wav";
+            }
+            else
+            {
+                format = ext;
+            }
+        }
+        else
+        {
+            if (ext.empty())
+            {
+                final_path += "." + format;
+            }
+        }
+
+        if (format == "wav")
+        {
+            if (samples.empty() || channels <= 0 || sample_rate <= 0)
+            {
+                throw std::runtime_error("RubyDSP: Cannot save an empty or invalid audio track.");
+            }
+
+            ma_encoder_config config = ma_encoder_config_init(
+                ma_encoding_format_wav,
+                ma_format_f32,
+                (ma_uint32)channels,
+                (ma_uint32)sample_rate);
+
+            ma_encoder encoder;
+
+            ma_result result = ma_encoder_init_file(final_path.c_str(), &config, &encoder);
+
+            if (result != MA_SUCCESS)
+            {
+                throw std::runtime_error("RubyDSP: Failed to initialize WAV encoder for: " + final_path);
+            }
+
+            ma_uint64 framesToWrite = samples.size() / channels;
+            ma_uint64 framesWritten = 0;
+
+            result = ma_encoder_write_pcm_frames(&encoder, samples.data(), framesToWrite, &framesWritten);
+
+            ma_encoder_uninit(&encoder);
+
+            if (result != MA_SUCCESS)
+            {
+                throw std::runtime_error("RubyDSP: Failed to write PCM data to: " + final_path);
+            }
+
+            if (framesWritten != framesToWrite)
+            {
+                throw std::runtime_error("RubyDSP: Incomplete file write to: " + final_path);
+            }
+
+            return true;
+        }
+
+        // TODO add unsupported formats
+        if (format == "flac" || format == "mp3" || format == "vorbis" || format == "ogg")
+        {
+            throw std::runtime_error("RubyDSP: " + format + " encoding is not yet supported. Only WAV is available.");
+        }
+
+        throw std::runtime_error("RubyDSP: Unknown format '" + format + "'");
     }
 
     float duration()
@@ -531,5 +620,8 @@ extern "C"
                                                               Arg("threshold_db") = -60.0f,
                                                               Arg("frame_length") = (unsigned int)2048,
                                                               Arg("hop_length") = (unsigned int)512)
+                                               .define_method("save_track", &AudioTrack::save_track,
+                                                              Arg("out_file"), // (no default -- duh)
+                                                              Arg("format") = Symbol("auto"))
                                                .define_method("to_s", &AudioTrack::to_s);
 }
