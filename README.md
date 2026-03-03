@@ -29,6 +29,12 @@ $ bundle install
 
 *(Note: Installing this gem requires a modern C++ compiler, as it builds the native extensions directly on your machine upon installation. It requires Ruby 3.0+).*
 
+After this, you can run your scripts with
+
+```bash
+$ bundle exec ruby script.rb
+```
+
 ## Quick Start
 
 Here is a quick look at what you can do with a loaded `AudioTrack`:
