@@ -16,7 +16,7 @@
 Since the gem is currently in pre-release, you can install it directly from GitHub by adding this line to your application's `Gemfile`:
 
 ```ruby
-gem 'ruby_dsp', github: 'cichrrad/ruby_dsp'
+gem 'ruby_dsp', github: 'cichrrad/rubyDSP'
 
 ```
 
