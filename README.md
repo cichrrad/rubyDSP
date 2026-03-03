@@ -16,15 +16,15 @@
 Since the gem is currently in pre-release, you can install it directly from GitHub by adding this line to your application's `Gemfile`:
 
 ```ruby
-gem 'ruby_dsp', github: 'cichrrad/rubyDSP'
+source "https://rubygems.org"
 
+gem 'ruby_dsp', github: 'cichrrad/rubyDSP'
 ```
 
 And then execute:
 
 ```bash
 $ bundle install
-
 ```
 
 *(Note: Installing this gem requires a modern C++ compiler, as it builds the native extensions directly on your machine upon installation. It requires Ruby 3.0+).*
@@ -59,7 +59,6 @@ framed_rms_data = track.framed_rms(frame_length: 2048, hop_length: 512)
 
 # Save the results
 track.save_track("processed_vocals.wav")
-
 ```
 
 ## Development
