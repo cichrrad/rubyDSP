@@ -1,0 +1,5 @@
+--title "RubyDSP Documentation"
+--readme README.md
+--markup markdown
+lib/**/*.rb
+stubs/**/*.rb

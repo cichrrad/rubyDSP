@@ -14,7 +14,7 @@ Gem::Specification.new do |s|
 
   s.required_ruby_version = '>= 3.0.0'
 
-  s.require_paths = ['lib', 'stubs/ruby_dsp']
+  s.require_paths = ['lib']
   s.extensions    = ['ext/ruby_dsp/extconf.rb']
 
   s.files         = `git ls-files -z`.split("\x0").reject { |f| f.match(%r{^(test|spec|features)/}) }

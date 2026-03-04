@@ -1,6 +1,6 @@
 # RubyDSP
 
-> 🚧 **Status:** This project is currently in early development. It is fully functional, but API changes are expected.
+> 🚧 **Status:** This project is currently in early development. It is hopefully functional, but API changes are expected. There is no warranty.
 
 **RubyDSP** is an audio processing and DSP Ruby gem. Ultimately, it aims to be `librosa`-wannabe for Ruby. It uses C++ under the hood, utilizing [miniaudio](https://miniaud.io/) and [Rice](https://github.com/jasonroelofs/rice)
 
