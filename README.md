@@ -1,6 +1,10 @@
-# RubyDSP
+# RubyDSP | [Documentation](https://www.rubydoc.info/gems/ruby_dsp/0.0.3)
+
+---
 
 > 🚧 **Status:** This project is currently in early development. It is hopefully functional, but API changes are expected. There is no warranty.
+
+---
 
 **RubyDSP** is an audio processing and DSP Ruby gem. Ultimately, it aims to be `librosa`-wannabe for Ruby. It uses C++ under the hood, utilizing [miniaudio](https://miniaud.io/) and [Rice](https://github.com/jasonroelofs/rice)
 
@@ -13,12 +17,10 @@
 
 ## Installation
 
-Since the gem is currently in pre-release, you can install it directly from GitHub by adding this line to your application's `Gemfile`:
+Add this line to your application's `Gemfile`:
 
 ```ruby
-source "https://rubygems.org"
-
-gem 'ruby_dsp', github: 'cichrrad/rubyDSP'
+gem 'ruby_dsp'
 ```
 
 And then execute:
@@ -27,13 +29,12 @@ And then execute:
 $ bundle install
 ```
 
-*(Note: Installing this gem requires a modern C++ compiler, as it builds the native extensions directly on your machine upon installation. It requires Ruby 3.0+).*
-
-After this, you can run your scripts with
+Or install it yourself directly via:
 
 ```bash
-$ bundle exec ruby script.rb
+$ gem install ruby_dsp
 ```
+*(Note: Installing this gem requires a modern C++ compiler, as it builds the native extensions directly on your machine upon installation. It requires Ruby 3.0+).*
 
 ## Quick Start
 
