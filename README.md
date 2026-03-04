@@ -1,4 +1,4 @@
-# RubyDSP | [Documentation](https://www.rubydoc.info/gems/ruby_dsp/0.0.3)
+# RubyDSP | [Documentation](https://www.rubydoc.info/gems/ruby_dsp/0.0.4)
 
 [![Ruby CI](https://github.com/cichrrad/rubyDSP/actions/workflows/test.yml/badge.svg)](https://github.com/cichrrad/rubyDSP/actions/workflows/test.yml)
 
