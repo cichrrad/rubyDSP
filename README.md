@@ -1,5 +1,7 @@
 # RubyDSP | [Documentation](https://www.rubydoc.info/gems/ruby_dsp/0.0.3)
 
+[![Ruby CI](https://github.com/cichrrad/rubyDSP/actions/workflows/test.yml/badge.svg)](https://github.com/cichrrad/rubyDSP/actions/workflows/test.yml)
+
 ---
 
 > 🚧 **Status:** This project is currently in early development. It is hopefully functional, but API changes are expected. There is no warranty.
@@ -70,7 +72,7 @@ track.save_track("processed_vocals.wav")
 
 ## Development
 
-If you want to clone the repo and hack on the C++ guts, we have fully automated the compilation and testing steps.
+If you want to clone the repo and work on C++ guts, start with:
 
 1. Clone the repo and run `bundle install` to grab the development dependencies.
 2. Run `rake test` — this will automatically compile the C++ `extconf.rb` and run the Minitest suite.
