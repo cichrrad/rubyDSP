@@ -21,8 +21,10 @@ Gem::Specification.new do |s|
 
   s.add_dependency 'rice', '~> 4.11.2'
 
+  s.add_development_dependency 'minitest', '~> 6.0'
   s.add_development_dependency 'rack', '~> 3.2'
   s.add_development_dependency 'rackup', '~> 2.3'
+  s.add_development_dependency 'rake', '~> 13.0'
   s.add_development_dependency 'rake-compiler', '~> 1.3'
   s.add_development_dependency 'webrick', '~> 1.9'
   s.add_development_dependency 'yard', '~> 0.9'
