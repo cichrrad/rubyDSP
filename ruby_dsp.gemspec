@@ -5,8 +5,8 @@ require_relative 'lib/ruby_dsp/version'
 Gem::Specification.new do |s|
   s.name        = 'ruby_dsp'
   s.version     = RubyDSP::VERSION
-  s.summary     = 'Very basic audio/DSP gem with C++ guts for speed'
-  s.description = 'Basically just a Ruby wrapper for miniaudio + some audio/DSP features.'
+  s.summary     = 'A fast, zero-dependency audio/DSP gem (WIP hobby project) using C++.'
+  s.description = 'RubyDSP is a hobby project exploring C++ extensions via Rice to bring faster audio processing to Ruby. Powered by miniaudio, it features a zero-dependency build and supports basic format-agnostic loading (WAV, MP3, FLAC), WAV export, and time-domain manipulation (resampling, padding, fades, RMS). It is very much in early development, so expect API changes and absolutely no warranties!' # rubocop:disable Layout/LineLength
   s.authors     = ['Radek C.']
   s.email       = 'cichrrad@cvut.cz'
   s.homepage    = 'https://github.com/cichrrad/rubyDSP'
@@ -26,6 +26,7 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'rackup', '~> 2.3'
   s.add_development_dependency 'rake', '~> 13.0'
   s.add_development_dependency 'rake-compiler', '~> 1.3'
+  s.add_development_dependency 'rubocop', '~> 1.85'
   s.add_development_dependency 'webrick', '~> 1.9'
   s.add_development_dependency 'yard', '~> 0.9'
 end

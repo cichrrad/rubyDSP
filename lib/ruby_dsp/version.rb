@@ -2,5 +2,5 @@
 # frozen_string_literal: true
 
 module RubyDSP
-  VERSION = '0.0.4'
+  VERSION = '0.0.5'
 end

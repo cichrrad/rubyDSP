@@ -15,6 +15,12 @@ module RubyDSP
     # @return [Boolean] true if the track has exactly 1 channel
     attr_reader :is_mono?
 
+    # @return [Array<Float>] vector of samples from the audio file
+    attr_reader :samples
+
+    # @return [Integer] number of samples in `samples`
+    attr_reader :sample_count
+
     # Initializes a new AudioTrack and decodes the given file.
     #
     # @param file_name [String] Path to the audio file.
@@ -122,6 +128,38 @@ module RubyDSP
     # @param hop_length [Integer] The number of samples to advance each frame. Default is 512.
     # @return [Boolean] true if the track was trimmed, false if no trimming occurred.
     def trim_silence!(threshold_db = -60.0, frame_length = 2048, hop_length = 512)
+    end
+
+    # Normalizes the audio track to a specific peak decibel level.
+    # @param target_db [Float] The target peak amplitude in dBFS. Defaults to -10.0.
+    # @return [Boolean] true if the track was altered, false if it was already at the target or silent.
+    def normalize!(target_db = -10.0)
+    end
+
+    # Applies a linear fade-in to the beginning of the audio track.
+    # @param duration_sec [Float] The length of the fade-in in seconds.
+    # @return [Boolean] true if the fade was applied, false if the track is empty or duration is <= 0.
+    def fade_in!(duration_sec)
+    end
+
+    # Applies a linear fade-out to the end of the audio track.
+    # @param duration_sec [Float] The length of the fade-out in seconds.
+    # @return [Boolean] true if the fade was applied, false if the track is empty or duration is <= 0.
+    def fade_out!(duration_sec)
+    end
+
+    # Pads the audio track with digital silence (0.0) at the beginning and/or end.
+    # @param head_sec [Float] Seconds of silence to add to the beginning. Defaults to 0.0.
+    # @param tail_sec [Float] Seconds of silence to add to the end. Defaults to 0.0.
+    # @return [Boolean] true if padding was added, false otherwise.
+    def pad!(head_sec = 0.0, tail_sec = 0.0)
+    end
+
+    # Pads the audio track with digital silence so that it reaches an exact target duration.
+    # The padding is distributed evenly to both the head and the tail, effectively centering the audio.
+    # @param target_duration_sec [Float] The desired total length of the track in seconds.
+    # @return [Boolean] true if padding was added, false if the track is already longer than the target.
+    def pad_to_duration!(target_duration_sec)
     end
 
     # @return [String] a formatted summary of the track.

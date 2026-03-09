@@ -1,7 +1,7 @@
 # test/ruby_dsp_test.rb
 require_relative 'test_helper'
 
-class RubyDSPTest < Minitest::Test # rubocop:disable Style/Documentation
+class RubyDSPTest < Minitest::Test
   def setup
     # ASSUMING valid stereo, 44100Hz wav file here
     @fixture_path = File.expand_path('fixtures/test_audio.wav', __dir__)
@@ -300,5 +300,169 @@ class RubyDSPTest < Minitest::Test # rubocop:disable Style/Documentation
       end
       assert_match(/Unknown format/, error3.message)
     end
+  end
+
+  def test_normalize_bang_scales_peak_amplitude
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+
+    # Normalize to 0 -> 1.0 peak
+    result = track.normalize!(0.0)
+
+    assert_equal true, result
+    assert_in_delta 1.0, track.peak_amp, 0.0001, 'Peak amplitude should be exactly 1.0 after normalizing to 0 dB'
+
+    assert_equal false, track.normalize!(0.0)
+  end
+
+  def test_fade_in_bang_applies_fade
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+
+    result = track.fade_in!(0.5)
+
+    assert_equal true, result
+    # very first sample of a fade-in should be multiplied by 0.0
+    assert_equal 0.0, track.samples.first
+  end
+
+  def test_fade_out_bang_applies_fade
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+
+    result = track.fade_out!(0.5)
+
+    assert_equal true, result
+    # very last sample of a fade-out should be multiplied by 0.0
+    assert_in_delta 0.0, track.samples.last, 0.0001
+  end
+
+  def test_pad_bang_adds_silence_to_ends
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+    original_duration = track.duration
+
+    # Pad 1 second to the head, 2 seconds to the tail
+    result = track.pad!(1.0, 2.0)
+
+    assert_equal true, result
+    assert_in_delta original_duration + 3.0, track.duration, 0.001
+
+    # Calling with 0 should be a no-op
+    assert_equal false, track.pad!(0.0, 0.0)
+  end
+
+  def test_pad_to_duration_bang_centers_audio
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+    target_duration = track.duration + 2.0
+
+    result = track.pad_to_duration!(target_duration)
+
+    assert_equal true, result
+    assert_in_delta target_duration, track.duration, 0.001
+
+    # first and last samples should now be padding (silence)
+    assert_equal 0.0, track.samples.first
+    assert_equal 0.0, track.samples.last
+
+    # calling with a shorter duration should be a safe no-op
+    assert_equal false, track.pad_to_duration!(1.0)
+  end
+
+  def test_pad_bang_preserves_original_data_integrity
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+
+    original_count = track.sample_count
+    channels = track.channels
+    sample_rate = track.sample_rate
+
+    # sequence of 10 samples from the very beginning and end
+    original_head_sequence = track.samples[0, 10]
+    original_tail_sequence = track.samples[-10, 10]
+
+    # pad 1 second to the head, 0.5 seconds to the tail
+    head_pad_sec = 1.0
+    tail_pad_sec = 0.5
+    track.pad!(head_pad_sec, tail_pad_sec)
+
+    # calculate the exact number of samples pushed to the front
+    head_pad_samples = (head_pad_sec * sample_rate).to_i * channels
+
+    # check that the absolute beginning is now pure silence
+    assert_equal Array.new(10, 0.0), track.samples[0, 10]
+
+    # check that the original head sequence was shifted perfectly
+    shifted_head_sequence = track.samples[head_pad_samples, 10]
+    assert_equal original_head_sequence, shifted_head_sequence, 'Original start data was corrupted during head pad'
+
+    # check that the original tail sequence is perfectly intact just before the new tail padding
+    shifted_tail_start_idx = head_pad_samples + original_count - 10
+    shifted_tail_sequence = track.samples[shifted_tail_start_idx, 10]
+    assert_equal original_tail_sequence, shifted_tail_sequence, 'Original end data was corrupted during tail pad'
+
+    # check that the absolute end is now pure silence
+    assert_equal Array.new(10, 0.0), track.samples[-10, 10]
+  end
+
+  def test_pad_to_duration_bang_centers_data_accurately
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+
+    original_count = track.sample_count
+    original_head = track.samples[0, 5]
+    original_tail = track.samples[-5, 5]
+
+    target_duration = track.duration + 2.0
+    track.pad_to_duration!(target_duration)
+
+    # pad_to_duration splits the difference evenly, we expect exactly 1 second on the head
+    expected_head_samples = (1.0 * track.sample_rate).to_i * track.channels
+
+    # original start data is perfectly preserved at the new offset
+    assert_equal original_head, track.samples[expected_head_samples, 5], 'Original start data was corrupted'
+
+    # original end data is perfectly preserved just before the tail padding
+    expected_tail_start_idx = expected_head_samples + original_count - 5
+    assert_equal original_tail, track.samples[expected_tail_start_idx, 5], 'Original end data was corrupted'
+  end
+
+  def test_fade_in_bang_mutates_samples_on_linear_curve
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+
+    fade_sec = 0.5
+    fade_frames = (fade_sec * track.sample_rate).to_i
+
+    # frame exactly halfway through the fade
+    mid_frame = fade_frames / 2
+    sample_index = mid_frame * track.channels
+
+    original_val = track.samples[sample_index]
+
+    # linear multiplier at exactly halfway should be ~0.5
+    expected_multiplier = mid_frame.to_f / fade_frames
+    expected_val = original_val * expected_multiplier
+
+    track.fade_in!(fade_sec)
+
+    assert_equal 0.0, track.samples.first, 'First sample should be fully faded (0.0)'
+    assert_in_delta expected_val, track.samples[sample_index], 0.0001, 'Mid-fade sample did not scale correctly'
+  end
+
+  def test_fade_out_bang_mutates_samples_on_linear_curve
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+
+    fade_sec = 0.5
+    total_frames = track.sample_count / track.channels
+    fade_frames = (fade_sec * track.sample_rate).to_i
+
+    # find the starting frame of the fade out, then step halfway into it
+    start_frame = total_frames - fade_frames
+    mid_frame = start_frame + (fade_frames / 2)
+    sample_index = mid_frame * track.channels
+
+    original_val = track.samples[sample_index]
+
+    expected_multiplier = 1.0 - ((mid_frame - start_frame).to_f / fade_frames)
+    expected_val = original_val * expected_multiplier
+
+    track.fade_out!(fade_sec)
+
+    assert_in_delta expected_val, track.samples[sample_index], 0.0001, 'Mid-fade sample did not scale correctly'
+    assert_in_delta 0.0, track.samples.last, 0.0001, 'Last sample should be fully faded (0.0)'
   end
 end

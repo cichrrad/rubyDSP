@@ -566,6 +566,145 @@ struct AudioTrack
         return true;
     }
 
+    bool normalize_bang(float target_db = -1.0f)
+    {
+        if (samples.empty())
+            return false;
+
+        float current_peak = peak_amplitude();
+        if (current_peak <= 0.0f)
+            return false; // silent track, nothing to scale
+
+        // convert target dB to a linear multiplier
+        float target_linear = std::pow(10.0f, target_db / 20.0f);
+        float scale_factor = target_linear / current_peak;
+
+        // already at the target peak -- do nothing
+        if (std::abs(scale_factor - 1.0f) < 1e-5f)
+            return false;
+
+        for (auto &sample : samples)
+        {
+            sample *= scale_factor;
+        }
+
+        return true;
+    }
+
+    bool fade_in_bang(float duration_sec)
+    {
+        if (samples.empty() || duration_sec <= 0.0f)
+            return false;
+
+        unsigned long long fade_frames = (unsigned long long)(duration_sec * sample_rate);
+        unsigned long long total_frames = sample_count / channels;
+
+        // Prevent fading longer than the track itself
+        if (fade_frames > total_frames)
+            fade_frames = total_frames;
+
+        for (unsigned long long i = 0; i < fade_frames; ++i)
+        {
+            float multiplier = (float)i / (float)fade_frames;
+            for (int c = 0; c < channels; ++c)
+            {
+                samples[i * channels + c] *= multiplier;
+            }
+        }
+        return true;
+    }
+
+    bool fade_out_bang(float duration_sec)
+    {
+        if (samples.empty() || duration_sec <= 0.0f)
+            return false;
+
+        unsigned long long fade_frames = (unsigned long long)(duration_sec * sample_rate);
+        unsigned long long total_frames = sample_count / channels;
+
+        if (fade_frames > total_frames)
+            fade_frames = total_frames;
+
+        unsigned long long start_frame = total_frames - fade_frames;
+
+        for (unsigned long long i = 0; i < fade_frames; ++i)
+        {
+            float multiplier = 1.0f - ((float)i / (float)fade_frames);
+            unsigned long long frame_idx = start_frame + i;
+            for (int c = 0; c < channels; ++c)
+            {
+                samples[frame_idx * channels + c] *= multiplier;
+            }
+        }
+        return true;
+    }
+
+    bool pad_bang(float head_sec = 0.0f, float tail_sec = 0.0f)
+    {
+        if (head_sec <= 0.0f && tail_sec <= 0.0f)
+            return false;
+
+        unsigned long long head_frames = (unsigned long long)(head_sec * sample_rate);
+        unsigned long long tail_frames = (unsigned long long)(tail_sec * sample_rate);
+
+        unsigned long long head_samples = head_frames * channels;
+        unsigned long long tail_samples = tail_frames * channels;
+
+        // pad the beginning
+        if (head_samples > 0)
+        {
+            samples.insert(samples.begin(), head_samples, 0.0f);
+        }
+
+        // pad the end
+        if (tail_samples > 0)
+        {
+            samples.insert(samples.end(), tail_samples, 0.0f);
+        }
+
+        sample_count = samples.size();
+
+        return true;
+    }
+
+    bool pad_to_duration_bang(float target_duration_sec)
+    {
+        if (target_duration_sec <= 0.0f)
+            return false;
+
+        unsigned long long current_frames = sample_count / channels;
+        unsigned long long target_frames = (unsigned long long)(target_duration_sec * sample_rate);
+
+        // track is already long enough, do nothing
+        if (target_frames <= current_frames)
+            return false;
+
+        unsigned long long diff_frames = target_frames - current_frames;
+
+        // split the difference `evenly`
+        unsigned long long head_frames = diff_frames / 2;
+        unsigned long long tail_frames = diff_frames - head_frames;
+
+        unsigned long long head_samples = head_frames * channels;
+        unsigned long long tail_samples = tail_frames * channels;
+
+        // pad the beginning
+        if (head_samples > 0)
+        {
+            samples.insert(samples.begin(), head_samples, 0.0f);
+        }
+
+        // pad the end
+        if (tail_samples > 0)
+        {
+            samples.insert(samples.end(), tail_samples, 0.0f);
+        }
+
+        sample_count = samples.size();
+
+        return true;
+    }
+
     std::string to_s()
     {
         std::ostringstream stream;
@@ -623,5 +762,16 @@ extern "C"
                                                .define_method("save_track", &AudioTrack::save_track,
                                                               Arg("out_file"), // (no default -- duh)
                                                               Arg("format") = Symbol("auto"))
+                                               .define_method("normalize!", &AudioTrack::normalize_bang,
+                                                              Arg("target_db") = -10.0f)
+                                               .define_method("fade_in!", &AudioTrack::fade_in_bang,
+                                                              Arg("duration_sec"))
+                                               .define_method("fade_out!", &AudioTrack::fade_out_bang,
+                                                              Arg("duration_sec"))
+                                               .define_method("pad!", &AudioTrack::pad_bang,
+                                                              Arg("head_sec") = 0.0f,
+                                                              Arg("tail_sec") = 0.0f)
+                                               .define_method("pad_to_duration!", &AudioTrack::pad_to_duration_bang,
+                                                              Arg("target_duration_sec"))
                                                .define_method("to_s", &AudioTrack::to_s);
 }

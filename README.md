@@ -1,20 +1,26 @@
-# RubyDSP | [Documentation](https://www.rubydoc.info/gems/ruby_dsp/0.0.4)
+# RubyDSP | [Documentation](https://www.rubydoc.info/gems/ruby_dsp/0.0.5)
 
 [![Ruby CI](https://github.com/cichrrad/rubyDSP/actions/workflows/test.yml/badge.svg)](https://github.com/cichrrad/rubyDSP/actions/workflows/test.yml)
 
 ---
 
-> 🚧 **Status:** This project is currently in early development. It is hopefully functional, but API changes are expected. There is no warranty.
+> 🚧 **Status:** This (***HOBBY***) project is currently in early development. It is hopefully functional, but API changes are expected. There is no warranty regarding anything 🗿.
 
 ---
 
-**RubyDSP** is an audio processing and DSP Ruby gem. Ultimately, it aims to be `librosa`-wannabe for Ruby. It uses C++ under the hood, utilizing [miniaudio](https://miniaud.io/) and [Rice](https://github.com/jasonroelofs/rice)
+**RubyDSP** is an audio processing and DSP Ruby gem. Ultimately, it aims to be `librosa`-wannabe for Ruby in some far utopian future which might never come. It uses C++ under the hood, utilizing [miniaudio](https://miniaud.io/) and [Rice](https://github.com/jasonroelofs/rice). 
+
+I made this gem to try [Rice](https://github.com/jasonroelofs/rice), as I would like to be able to bring some C++ speed to Ruby, oh my beloved....
 
 ## Features
 
 * **Fast:** Basically all of the code is written in C++. While not extremely optimized currently, it still absolutely shreds native Ruby.
+
 * **Format Agnostic Loading:** Automatically decodes standard audio formats (WAV, MP3, FLAC) via `miniaudio`.
+> **Note:** While the loading of these formats is supported, `miniaudio` encodes only in `.wav`. While other encodings might be considered in the future, they would require more dependencies and thus are not available right now.
+
 * **Zero-Dependency Native Build:** No need to install `ffmpeg` or `libsndfile` on your system.
+
 * **YARD Support:** Includes pure-Ruby stubs (in `stubs`, duh) for IDE autocomplete and inline documentation.
 
 ## Installation
@@ -52,9 +58,16 @@ puts track
 # => ['raw_vocals.wav', 12.450s duration, 2 channel(s), 48000Hz sample rate]
 
 # Do stuff!
-track.to_mono!             # Averages channels into mono
-track.resample!(44100)     # Linearly resamples to target rate
-track.trim_silence!(-60.0) # Strips leading/trailing silence below -60dB
+track.to_mono!                   # Averages channels into mono
+track.resample!(44100)           # Linearly resamples to target rate
+track.trim_silence!(-60.0)       # Strips leading/trailing silence below -60dB
+
+# Edit & Manipulate
+track.normalize!(-1.0)           # Scales audio to target peak dBFS
+track.fade_in!(0.5)              # Adds a 0.5s linear fade-in
+track.fade_out!(0.5)             # Adds a 0.5s linear fade-out
+track.pad!(1.0, 1.0)             # Pads 1s of silence to both head and tail
+track.pad_to_duration!(15.0)     # Centers audio evenly into a 15s window
 
 # Analysis & Math
 puts "Peak Amp: #{track.peak_amp}"
@@ -81,3 +94,6 @@ If you want to clone the repo and work on C++ guts, start with:
 ## License
 
 The gem is available as open source under the terms of the **MIT License**.
+
+---
+> Cheers! - RC
