@@ -21,13 +21,16 @@ module RubyDSP
     # @return [Integer] number of samples in `samples`
     attr_reader :sample_count
 
-    # Initializes a new AudioTrack and decodes the given file.
+    # Initializes a new AudioTrack.
     #
-    # @param file_name [String] Path to the audio file.
-    # @param target_channels [Integer] Optional. Force a specific number of channels (0 = original).
-    # @param target_sample_rate [Integer] Optional. Force a specific sample rate (0 = original).
-    # @raise [RuntimeError] if the file cannot be processed or read.
-    def initialize(file_name = 'default.wav', target_channels = 0, target_sample_rate = 0)
+    # Decodes the given file using miniaudio. If `file_name` is an empty string `""`,
+    # it initializes an empty, blank audio canvas for synthesis and sequencing.
+    #
+    # @param file_name [String] Path to the audio file, or `""` for a blank track.
+    # @param target_channels [Integer] Optional. Force a specific number of channels (Defaults to 1 for blank tracks).
+    # @param target_sample_rate [Integer] Optional. Force a specific sample rate (Defaults to 44100 for blank tracks).
+    # @raise [RuntimeError] if a file is provided but cannot be processed or read.
+    def initialize(file_name = '', target_channels = 0, target_sample_rate = 0)
     end
 
     # Saves the audio track to disk.
@@ -68,7 +71,7 @@ module RubyDSP
 
     # Destructively converts the track to mono by averaging the channels.
     #
-    # @return [Boolean] true if conversion happened, false if already mono.
+    # @return [AudioTrack] self for method chaining.
     # @raise [RuntimeError] if channel count is invalid.
     def to_mono!
     end
@@ -76,7 +79,7 @@ module RubyDSP
     # Destructively resamples the track to the target rate using linear resampling.
     #
     # @param target_rate [Integer] The new sample rate in Hz.
-    # @return [Boolean] true if resampling happened, false if the rate was unchanged.
+    # @return [AudioTrack] self for method chaining.
     # @raise [RuntimeError] if the resampler fails to initialize or process.
     def resample!(target_rate = 0)
     end
@@ -126,40 +129,54 @@ module RubyDSP
     # @param threshold_db [Float] The threshold in decibels below the peak RMS to consider as silence. Default is -60.0.
     # @param frame_length [Integer] The number of samples per frame. Default is 2048.
     # @param hop_length [Integer] The number of samples to advance each frame. Default is 512.
-    # @return [Boolean] true if the track was trimmed, false if no trimming occurred.
+    # @return [AudioTrack] self for method chaining.
     def trim_silence!(threshold_db = -60.0, frame_length = 2048, hop_length = 512)
     end
 
     # Normalizes the audio track to a specific peak decibel level.
     # @param target_db [Float] The target peak amplitude in dBFS. Defaults to -10.0.
-    # @return [Boolean] true if the track was altered, false if it was already at the target or silent.
+    # @return [AudioTrack] self for method chaining.
     def normalize!(target_db = -10.0)
     end
 
     # Applies a linear fade-in to the beginning of the audio track.
     # @param duration_sec [Float] The length of the fade-in in seconds.
-    # @return [Boolean] true if the fade was applied, false if the track is empty or duration is <= 0.
+    # @return [AudioTrack] self for method chaining.
     def fade_in!(duration_sec)
     end
 
     # Applies a linear fade-out to the end of the audio track.
     # @param duration_sec [Float] The length of the fade-out in seconds.
-    # @return [Boolean] true if the fade was applied, false if the track is empty or duration is <= 0.
+    # @return [AudioTrack] self for method chaining.
     def fade_out!(duration_sec)
     end
 
     # Pads the audio track with digital silence (0.0) at the beginning and/or end.
     # @param head_sec [Float] Seconds of silence to add to the beginning. Defaults to 0.0.
     # @param tail_sec [Float] Seconds of silence to add to the end. Defaults to 0.0.
-    # @return [Boolean] true if padding was added, false otherwise.
+    # @return [AudioTrack] self for method chaining.
     def pad!(head_sec = 0.0, tail_sec = 0.0)
     end
 
     # Pads the audio track with digital silence so that it reaches an exact target duration.
     # The padding is distributed evenly to both the head and the tail, effectively centering the audio.
     # @param target_duration_sec [Float] The desired total length of the track in seconds.
-    # @return [Boolean] true if padding was added, false if the track is already longer than the target.
+    # @return [AudioTrack] self for method chaining.
     def pad_to_duration!(target_duration_sec)
+    end
+
+    # Generates and mixes a mathematical waveform into the track.
+    #
+    # Dynamically resizes the track if the wave extends past the current duration.
+    # If a wave overlaps with existing audio data, it is mixed (added) together, allowing for polyphony.
+    #
+    # @param wave_type [String] The shape of the waveform (`"sine"`, `"square"`, `"sawtooth"`, `"noise"`).
+    # @param frequency [Float] The frequency of the wave in Hz (e.g., 440.0).
+    # @param duration_sec [Float] The length of the generated wave in seconds.
+    # @param start_sec [Float] The timestamp in seconds to start the wave. Defaults to -1.0 (appends to the end).
+    # @param amplitude [Float] The peak amplitude of the wave. Defaults to 1.0.
+    # @return [AudioTrack] self for method chaining.
+    def add_wave!(wave_type, frequency, duration_sec, start_sec = -1.0, amplitude = 1.0)
     end
 
     # @return [String] a formatted summary of the track.

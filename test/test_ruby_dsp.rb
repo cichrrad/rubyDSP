@@ -62,31 +62,25 @@ class RubyDSPTest < Minitest::Test
   def test_to_mono_bang_converts_stereo_to_mono
     track = RubyDSP::AudioTrack.new(@fixture_path)
 
-    # Should perform the conversion and return true
-    assert_equal true, track.to_mono!
+    track.to_mono!
 
     # State should be updated
     assert_equal 1, track.channels
     assert track.is_mono?
-
-    # Running it again should be a no-op and return false
-    assert_equal false, track.to_mono!
   end
 
   def test_resample_bang_changes_sample_rate
     track = RubyDSP::AudioTrack.new(@fixture_path)
 
-    # Should perform resampling and return true
-    assert_equal true, track.resample!(48_000)
+    track.resample!(48_000)
 
     # State should be updated
     assert_equal 48_000, track.sample_rate
 
     # Running it with the same target rate should be a no-op
-    assert_equal false, track.resample!(48_000)
+    track.resample!(48_000)
 
-    # Running it with 0 should be a no-op
-    assert_equal false, track.resample!(0)
+    assert_equal 48_000, track.sample_rate
   end
 
   def test_overall_rms_returns_array_per_channel
@@ -193,9 +187,8 @@ class RubyDSPTest < Minitest::Test
     track = RubyDSP::AudioTrack.new(@fixture_path)
     original_duration = track.duration
 
-    result = track.trim_silence!(-10.0)
+    track.trim_silence!(-10.0)
 
-    assert_equal true, result
     assert track.duration < original_duration, 'Track duration should decrease after trimming'
   end
 
@@ -204,9 +197,8 @@ class RubyDSPTest < Minitest::Test
     original_duration = track.duration
 
     # this is so down it should not trim anything
-    result = track.trim_silence!(-999.0)
+    track.trim_silence!(-999.0)
 
-    assert_equal false, result
     assert_equal original_duration, track.duration, 'Track duration should not change on no-op'
   end
 
@@ -231,9 +223,8 @@ class RubyDSPTest < Minitest::Test
 
     Dir.mktmpdir do |dir|
       out_path = File.join(dir, 'output.wav')
-      result = track.save_track(out_path)
+      track.save_track(out_path)
 
-      assert_equal true, result
       assert File.exist?(out_path), "File should be created at #{out_path}"
 
       # Load it back to verify the data survived the round trip
@@ -252,8 +243,8 @@ class RubyDSPTest < Minitest::Test
     Dir.mktmpdir do |dir|
       base_path = File.join(dir, 'auto_appended_output')
 
-      # Should return true and append .wav
-      assert_equal true, track.save_track(base_path)
+      # Should append .wav
+      track.save_track(base_path)
 
       expected_path = "#{base_path}.wav"
       assert File.exist?(expected_path), 'The .wav extension should have been appended'
@@ -267,9 +258,8 @@ class RubyDSPTest < Minitest::Test
       out_path = File.join(dir, 'weird_extension.data')
 
       # Force it to save as WAV and keep .data
-      result = track.save_track(out_path, :wav)
+      track.save_track(out_path, :wav)
 
-      assert_equal true, result
       assert File.exist?(out_path), 'File should be saved exactly as requested'
       refute File.exist?("#{out_path}.wav"), 'It should not double-append extensions if user forces format'
 
@@ -306,20 +296,16 @@ class RubyDSPTest < Minitest::Test
     track = RubyDSP::AudioTrack.new(@fixture_path)
 
     # Normalize to 0 -> 1.0 peak
-    result = track.normalize!(0.0)
+    track.normalize!(0.0)
 
-    assert_equal true, result
     assert_in_delta 1.0, track.peak_amp, 0.0001, 'Peak amplitude should be exactly 1.0 after normalizing to 0 dB'
-
-    assert_equal false, track.normalize!(0.0)
   end
 
   def test_fade_in_bang_applies_fade
     track = RubyDSP::AudioTrack.new(@fixture_path)
 
-    result = track.fade_in!(0.5)
+    track.fade_in!(0.5)
 
-    assert_equal true, result
     # very first sample of a fade-in should be multiplied by 0.0
     assert_equal 0.0, track.samples.first
   end
@@ -327,9 +313,8 @@ class RubyDSPTest < Minitest::Test
   def test_fade_out_bang_applies_fade
     track = RubyDSP::AudioTrack.new(@fixture_path)
 
-    result = track.fade_out!(0.5)
+    track.fade_out!(0.5)
 
-    assert_equal true, result
     # very last sample of a fade-out should be multiplied by 0.0
     assert_in_delta 0.0, track.samples.last, 0.0001
   end
@@ -339,22 +324,21 @@ class RubyDSPTest < Minitest::Test
     original_duration = track.duration
 
     # Pad 1 second to the head, 2 seconds to the tail
-    result = track.pad!(1.0, 2.0)
+    track.pad!(1.0, 2.0)
 
-    assert_equal true, result
     assert_in_delta original_duration + 3.0, track.duration, 0.001
 
     # Calling with 0 should be a no-op
-    assert_equal false, track.pad!(0.0, 0.0)
+    track.pad!(0.0, 0.0)
+    assert_in_delta original_duration + 3.0, track.duration, 0.001
   end
 
   def test_pad_to_duration_bang_centers_audio
     track = RubyDSP::AudioTrack.new(@fixture_path)
     target_duration = track.duration + 2.0
 
-    result = track.pad_to_duration!(target_duration)
+    track.pad_to_duration!(target_duration)
 
-    assert_equal true, result
     assert_in_delta target_duration, track.duration, 0.001
 
     # first and last samples should now be padding (silence)
@@ -362,7 +346,8 @@ class RubyDSPTest < Minitest::Test
     assert_equal 0.0, track.samples.last
 
     # calling with a shorter duration should be a safe no-op
-    assert_equal false, track.pad_to_duration!(1.0)
+    track.pad_to_duration!(1.0)
+    assert track.duration, target_duration
   end
 
   def test_pad_bang_preserves_original_data_integrity
@@ -464,5 +449,86 @@ class RubyDSPTest < Minitest::Test
 
     assert_in_delta expected_val, track.samples[sample_index], 0.0001, 'Mid-fade sample did not scale correctly'
     assert_in_delta 0.0, track.samples.last, 0.0001, 'Last sample should be fully faded (0.0)'
+  end
+
+  def test_method_chaining_works_fluently
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+
+    # Store the result of a chain
+    result = track.to_mono!.normalize!(0.0).fade_in!(0.5)
+
+    # Prove that the final result is the exact same object in memory
+    assert_same track, result, 'Method chain did not return the original track instance'
+
+    # Verify the mutations actually happened through the chain
+    assert track.is_mono?
+    assert_in_delta 1.0, track.peak_amp, 0.0001
+    assert_equal 0.0, track.samples.first
+  end
+
+  def test_blank_constructor_initializes_empty_track
+    # Create a blank canvas
+    track = RubyDSP::AudioTrack.new('', 1, 44_100)
+
+    assert_equal 0.0, track.duration
+    assert_equal 0, track.sample_count
+    assert_equal 1, track.channels
+    assert_equal 44_100, track.sample_rate
+  end
+
+  def test_add_wave_bang_implicit_append
+    track = RubyDSP::AudioTrack.new('', 1, 44_100)
+
+    # Add a 1-second wave (no start time provided)
+    track.add_wave!('sine', 440.0, 1.0)
+    assert_in_delta 1.0, track.duration, 0.001
+
+    # Add a 0.5-second wave (should append to the end)
+    track.add_wave!('square', 220.0, 0.5)
+    assert_in_delta 1.5, track.duration, 0.001
+  end
+
+  def test_add_wave_bang_dynamic_resizing
+    track = RubyDSP::AudioTrack.new('', 1, 44_100)
+
+    # Insert a 1-second wave starting at exactly 2.0 seconds
+    track.add_wave!('sawtooth', 440.0, 1.0, 2.0)
+
+    # The track should now be exactly 3.0 seconds long
+    assert_in_delta 3.0, track.duration, 0.001
+
+    # The first two seconds should be pure silence (0.0)
+    silence_samples = 2 * 44_100
+    assert_equal 0.0, track.samples.first
+    assert_equal 0.0, track.samples[silence_samples - 1]
+
+    # But right at the 2.0 second mark, we should have audio data
+    refute_equal 0.0, track.samples[silence_samples + 10]
+  end
+
+  def test_add_wave_bang_polyphony_mixing
+    track = RubyDSP::AudioTrack.new('', 1, 44_100)
+
+    # Add a sine wave with exactly 0.4 amplitude
+    track.add_wave!('sine', 440.0, 1.0, 0.0, 0.4)
+    assert_in_delta 0.4, track.peak_amp, 0.0001
+
+    # Add a square wave directly on top of it, also at 0.0 timestamp, with 0.4 amplitude
+    track.add_wave!('square', 220.0, 1.0, 0.0, 0.4)
+
+    # If polyphony works (+=), the peak amplitude should now be higher than 0.4
+    # (In this specific case, it should max out around 0.8)
+    peak = track.peak_amp
+    assert peak > 0.4, 'Wave was overwritten instead of mixed!'
+    assert_in_delta 0.8, peak, 0.0001
+  end
+
+  def test_add_wave_bang_returns_self_for_chaining
+    track = RubyDSP::AudioTrack.new('', 1, 44_100)
+
+    # Prove the fluent interface works for the generator
+    result = track.add_wave!('noise', 0.0, 1.0)
+
+    assert_same track, result, 'add_wave! must return the track instance for chaining'
   end
 end

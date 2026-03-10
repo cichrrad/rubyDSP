@@ -7,6 +7,7 @@
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
+#include <cstdlib>
 
 #define MINIAUDIO_IMPLEMENTATION
 #include "vendor/miniaudio.h"
@@ -35,6 +36,17 @@ struct AudioTrack
 
     AudioTrack(std::string f, unsigned int target_channels = 0, unsigned int target_sample_rate = 0) : filename(f)
     {
+
+        // empty constructor
+        if (filename.empty())
+        {
+            sample_rate = target_sample_rate > 0 ? target_sample_rate : 44100;
+            channels = target_channels > 0 ? target_channels : 1;
+            is_mono = (channels == 1);
+            sample_count = 0;
+            return;
+        }
+
         ma_decoder decoder;
         ma_result result;
 
@@ -163,11 +175,11 @@ struct AudioTrack
         return max_val;
     }
 
-    bool to_mono_bang()
+    AudioTrack &to_mono_bang()
     {
         if (is_mono)
         {
-            return false; // no-op
+            return *this; // no-op
         }
 
         if (channels < 1)
@@ -196,14 +208,14 @@ struct AudioTrack
         channels = 1;
         is_mono = true;
         sample_count = samples.size();
-        return true;
+        return *this;
     }
 
-    bool resample_bang(unsigned int target_rate = 0)
+    AudioTrack &resample_bang(unsigned int target_rate = 0)
     {
         if (target_rate == 0 || target_rate == sample_rate)
         {
-            return false; // no-op
+            return *this; // no-op
         }
 
         // TODO: add better, linear will have to do for now
@@ -252,7 +264,7 @@ struct AudioTrack
         sample_rate = target_rate;
         sample_count = samples.size();
 
-        return true;
+        return *this;
     }
 
     std::vector<float> rms()
@@ -532,10 +544,10 @@ struct AudioTrack
         return {start_sample, end_sample};
     }
 
-    bool trim_silence_bang(float threshold_db = -60.0f, unsigned int frame_length = 2048, unsigned int hop_length = 512)
+    AudioTrack &trim_silence_bang(float threshold_db = -60.0f, unsigned int frame_length = 2048, unsigned int hop_length = 512)
     {
         if (samples.empty())
-            return false;
+            return *this;
 
         std::vector<unsigned long long> bounds = silence_bounds(threshold_db, frame_length, hop_length);
         unsigned long long start_sample = bounds[0];
@@ -545,14 +557,14 @@ struct AudioTrack
 
         // No-op checks
         if (start_sample == 0 && end_sample >= per_channel_samples)
-            return false;
+            return *this;
 
         // If the file is entirely silent, clear everything
         if (start_sample == 0 && end_sample == 0)
         {
             samples.clear();
             sample_count = 0;
-            return true;
+            return *this;
         }
 
         // Slice the interleaved sample array
@@ -563,17 +575,17 @@ struct AudioTrack
         samples = std::move(trimmed_samples);
         sample_count = samples.size();
 
-        return true;
+        return *this;
     }
 
-    bool normalize_bang(float target_db = -1.0f)
+    AudioTrack &normalize_bang(float target_db = -1.0f)
     {
         if (samples.empty())
-            return false;
+            return *this;
 
         float current_peak = peak_amplitude();
         if (current_peak <= 0.0f)
-            return false; // silent track, nothing to scale
+            return *this; // silent track, nothing to scale
 
         // convert target dB to a linear multiplier
         float target_linear = std::pow(10.0f, target_db / 20.0f);
@@ -581,20 +593,20 @@ struct AudioTrack
 
         // already at the target peak -- do nothing
         if (std::abs(scale_factor - 1.0f) < 1e-5f)
-            return false;
+            return *this;
 
         for (auto &sample : samples)
         {
             sample *= scale_factor;
         }
 
-        return true;
+        return *this;
     }
 
-    bool fade_in_bang(float duration_sec)
+    AudioTrack &fade_in_bang(float duration_sec)
     {
         if (samples.empty() || duration_sec <= 0.0f)
-            return false;
+            return *this;
 
         unsigned long long fade_frames = (unsigned long long)(duration_sec * sample_rate);
         unsigned long long total_frames = sample_count / channels;
@@ -611,13 +623,13 @@ struct AudioTrack
                 samples[i * channels + c] *= multiplier;
             }
         }
-        return true;
+        return *this;
     }
 
-    bool fade_out_bang(float duration_sec)
+    AudioTrack &fade_out_bang(float duration_sec)
     {
         if (samples.empty() || duration_sec <= 0.0f)
-            return false;
+            return *this;
 
         unsigned long long fade_frames = (unsigned long long)(duration_sec * sample_rate);
         unsigned long long total_frames = sample_count / channels;
@@ -636,13 +648,13 @@ struct AudioTrack
                 samples[frame_idx * channels + c] *= multiplier;
             }
         }
-        return true;
+        return *this;
     }
 
-    bool pad_bang(float head_sec = 0.0f, float tail_sec = 0.0f)
+    AudioTrack &pad_bang(float head_sec = 0.0f, float tail_sec = 0.0f)
     {
         if (head_sec <= 0.0f && tail_sec <= 0.0f)
-            return false;
+            return *this;
 
         unsigned long long head_frames = (unsigned long long)(head_sec * sample_rate);
         unsigned long long tail_frames = (unsigned long long)(tail_sec * sample_rate);
@@ -664,20 +676,20 @@ struct AudioTrack
 
         sample_count = samples.size();
 
-        return true;
+        return *this;
     }
 
-    bool pad_to_duration_bang(float target_duration_sec)
+    AudioTrack &pad_to_duration_bang(float target_duration_sec)
     {
         if (target_duration_sec <= 0.0f)
-            return false;
+            return *this;
 
         unsigned long long current_frames = sample_count / channels;
         unsigned long long target_frames = (unsigned long long)(target_duration_sec * sample_rate);
 
         // track is already long enough, do nothing
         if (target_frames <= current_frames)
-            return false;
+            return *this;
 
         unsigned long long diff_frames = target_frames - current_frames;
 
@@ -702,7 +714,66 @@ struct AudioTrack
 
         sample_count = samples.size();
 
-        return true;
+        return *this;
+    }
+
+    AudioTrack &add_wave_bang(std::string wave_type, float frequency, float duration_sec, float start_sec = -1.0f, float amplitude = 1.0f)
+    {
+        if (duration_sec <= 0.0f)
+            return *this;
+
+        // If no start time is provided (-1.0), append to the very end of the track
+        if (start_sec < 0.0f)
+        {
+            start_sec = duration();
+        }
+
+        unsigned long long start_sample = (unsigned long long)(start_sec * sample_rate);
+        unsigned long long wave_samples = (unsigned long long)(duration_sec * sample_rate);
+        unsigned long long end_sample = start_sample + wave_samples;
+
+        // Dynamically grow the track if this wave pushes past the current end
+        unsigned long long required_samples = end_sample * channels;
+        if (required_samples > samples.size())
+        {
+            samples.resize(required_samples, 0.0f);
+            sample_count = samples.size();
+        }
+
+        // Generate and MIX the wave
+        for (unsigned long long i = 0; i < wave_samples; ++i)
+        {
+            float t = (float)i / sample_rate; // Time in seconds
+            float sample_val = 0.0f;
+
+            if (wave_type == "sine")
+            {
+                sample_val = std::sin(2.0f * M_PI * frequency * t);
+            }
+            else if (wave_type == "square")
+            {
+                sample_val = std::sin(2.0f * M_PI * frequency * t) >= 0.0f ? 1.0f : -1.0f;
+            }
+            else if (wave_type == "sawtooth")
+            {
+                sample_val = 2.0f * std::fmod(t * frequency, 1.0f) - 1.0f;
+            }
+            else if (wave_type == "noise")
+            {
+                sample_val = ((float)std::rand() / RAND_MAX) * 2.0f - 1.0f;
+            }
+
+            sample_val *= amplitude;
+
+            // Mix into all channels at the correct offset
+            unsigned long long current_idx = start_sample + i;
+            for (int c = 0; c < channels; ++c)
+            {
+                samples[current_idx * channels + c] += sample_val;
+            }
+        }
+
+        return *this;
     }
 
     std::string to_s()
@@ -727,7 +798,7 @@ extern "C"
     Module rb_mRubyDSP = define_module("RubyDSP");
     Data_Type<AudioTrack> rb_cAudioTrack = define_class_under<AudioTrack>(rb_mRubyDSP, "AudioTrack")
                                                .define_constructor(Constructor<AudioTrack, std::string, unsigned int, unsigned int>(),
-                                                                   Arg("file_name") = (std::string) "default.wav",
+                                                                   Arg("file_name") = (std::string) "",
                                                                    Arg("target_channels") = (unsigned int)0,
                                                                    Arg("target_sample_rate") = (unsigned int)0)
                                                // attributes
@@ -773,5 +844,11 @@ extern "C"
                                                               Arg("tail_sec") = 0.0f)
                                                .define_method("pad_to_duration!", &AudioTrack::pad_to_duration_bang,
                                                               Arg("target_duration_sec"))
+                                               .define_method("add_wave!", &AudioTrack::add_wave_bang,
+                                                              Arg("wave_type"),
+                                                              Arg("frequency"),
+                                                              Arg("duration_sec"),
+                                                              Arg("start_sec") = -1.0f,
+                                                              Arg("amplitude") = 1.0f)
                                                .define_method("to_s", &AudioTrack::to_s);
 }
