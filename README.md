@@ -113,15 +113,27 @@ track.normalize!(-30.0)  # This goes a long way for your hearing
 
 #### **TWINKLE**
 
-* <video src="./demo/twinkle_twinkle.mp4" controls title="Twinkle"></video>
+
+
+https://github.com/user-attachments/assets/af6dbaee-630f-49e3-9704-8ff3440334cb
+
+
 
 #### **TETRIS**
 
-* <video src="./demo/tetris_theme.mp4" controls title="Tetris"></video>
+
+
+https://github.com/user-attachments/assets/b3ad6886-3552-4200-b725-f14083f96792
+
+
 
 #### **SUPER MARIO BROS**
 
-* <video src="./demo/mario_intro.mp4" controls title="SMB"></video>
+
+
+https://github.com/user-attachments/assets/5193d72d-4c32-4c83-8253-206402ac2889
+
+
 
 ## Development
 
