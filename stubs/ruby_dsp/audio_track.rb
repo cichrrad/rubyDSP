@@ -179,6 +179,80 @@ module RubyDSP
     def add_wave!(wave_type, frequency, duration_sec, start_sec = -1.0, amplitude = 1.0)
     end
 
+    # Destructively clamps all audio samples to the standard [-1.0, 1.0] range.
+    #
+    # This prevents harsh digital clipping when exporting polyphonic or boosted audio.
+    #
+    # @return [AudioTrack] self for method chaining.
+    def clip!
+    end
+
+    # Applies a high-order low-pass filter (Butterworth) to the track.
+    #
+    # Attenuates frequencies above the cutoff, letting lower frequencies pass through.
+    #
+    # @param cutoff_freq [Integer, Float] The threshold frequency in Hz.
+    # @return [AudioTrack] self for method chaining.
+    def low_pass!(cutoff_freq)
+    end
+
+    # Applies a 2nd-order high-pass filter to the track.
+    #
+    # Attenuates frequencies below the cutoff, letting higher frequencies pass through.
+    #
+    # @param cutoff_freq [Integer, Float] The threshold frequency in Hz.
+    # @return [AudioTrack] self for method chaining.
+    def high_pass!(cutoff_freq)
+    end
+
+    # Applies a 2nd-order band-pass filter to the track.
+    #
+    # Preserves frequencies around the cutoff, heavily attenuating both higher and lower frequencies.
+    #
+    # @param cutoff_freq [Integer, Float] The center frequency in Hz.
+    # @return [AudioTrack] self for method chaining.
+    def band_pass!(cutoff_freq)
+    end
+
+    # Applies a 2nd-order notch filter to surgically remove a specific frequency.
+    #
+    # @param center_freq [Integer, Float] The exact frequency to eliminate in Hz.
+    # @param q [Float] The resonance/width of the notch. Defaults to 0.707 (Butterworth).
+    # @return [AudioTrack] self for method chaining.
+    def notch!(center_freq, q = 0.707)
+    end
+
+    # Applies a 2nd-order peaking EQ filter to boost or cut a specific frequency band.
+    #
+    # @param center_freq [Integer, Float] The target frequency in Hz.
+    # @param gain_db [Float] The amount to boost (positive) or cut (negative) in decibels.
+    # @param q [Float] The resonance/width of the bell curve. Defaults to 0.707.
+    # @return [AudioTrack] self for method chaining.
+    def peak_eq!(center_freq, gain_db, q = 0.707)
+    end
+
+    # Applies a 2nd-order low-shelf filter.
+    #
+    # Boosts or cuts frequencies below the cutoff without affecting higher frequencies.
+    #
+    # @param cutoff_freq [Integer, Float] The threshold frequency in Hz.
+    # @param gain_db [Float] The amount to boost (positive) or cut (negative) in decibels.
+    # @param q [Float] The resonance/slope of the shelf. Defaults to 0.707.
+    # @return [AudioTrack] self for method chaining.
+    def low_shelf!(cutoff_freq, gain_db, q = 0.707)
+    end
+
+    # Applies a 2nd-order high-shelf filter.
+    #
+    # Boosts or cuts frequencies above the cutoff without affecting lower frequencies.
+    #
+    # @param cutoff_freq [Integer, Float] The threshold frequency in Hz.
+    # @param gain_db [Float] The amount to boost (positive) or cut (negative) in decibels.
+    # @param q [Float] The resonance/slope of the shelf. Defaults to 0.707.
+    # @return [AudioTrack] self for method chaining.
+    def high_shelf!(cutoff_freq, gain_db, q = 0.707)
+    end
+
     # @return [String] a formatted summary of the track.
     def to_s
     end

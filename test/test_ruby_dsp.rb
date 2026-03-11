@@ -531,4 +531,240 @@ class RubyDSPTest < Minitest::Test
 
     assert_same track, result, 'add_wave! must return the track instance for chaining'
   end
+
+  # TODO: -- AFTER BETTER TESTING FOR FILTERS ONCE WE HAVE FFT AND WHATNOT
+  def test_low_pass_bang_mutates_audio_and_chains
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+    original_rms = track.rms
+
+    # Apply a 1000Hz low-pass filter
+    result = track.low_pass!(1000)
+
+    assert_same track, result, 'low_pass! must return the track instance for chaining'
+    refute_equal original_rms, track.rms, 'Low-pass filter did not mutate the audio data'
+  end
+
+  def test_high_pass_bang_mutates_audio_and_chains
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+    original_rms = track.rms
+
+    # Apply a 500Hz high-pass filter
+    result = track.high_pass!(500)
+
+    assert_same track, result, 'high_pass! must return the track instance for chaining'
+    refute_equal original_rms, track.rms, 'High-pass filter did not mutate the audio data'
+  end
+
+  def test_band_pass_bang_mutates_audio_and_chains
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+    original_rms = track.rms
+
+    # Apply a 1000Hz band-pass filter
+    result = track.band_pass!(1000)
+
+    assert_same track, result, 'band_pass! must return the track instance for chaining'
+    refute_equal original_rms, track.rms, 'Band-pass filter did not mutate the audio data'
+  end
+
+  def test_notch_bang_mutates_audio_and_chains
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+    original_rms = track.rms
+
+    # Surgically remove 60Hz (standard electrical hum frequency)
+    result = track.notch!(60, 0.707)
+
+    assert_same track, result, 'notch! must return the track instance for chaining'
+    refute_equal original_rms, track.rms, 'Notch filter did not mutate the audio data'
+  end
+
+  def test_peak_eq_bang_mutates_audio_and_chains
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+    original_rms = track.rms
+
+    # Boost 1000Hz by 3.0 decibels
+    result = track.peak_eq!(1000, 3.0, 0.707)
+
+    assert_same track, result, 'peak_eq! must return the track instance for chaining'
+    refute_equal original_rms, track.rms, 'Peaking EQ did not mutate the audio data'
+  end
+
+  def test_low_shelf_bang_mutates_audio_and_chains
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+    original_rms = track.rms
+
+    # Cut everything below 200Hz by -3.0 decibels
+    result = track.low_shelf!(200, -3.0, 0.707)
+
+    assert_same track, result, 'low_shelf! must return the track instance for chaining'
+    refute_equal original_rms, track.rms, 'Low-shelf filter did not mutate the audio data'
+  end
+
+  def test_high_shelf_bang_mutates_audio_and_chains
+    track = RubyDSP::AudioTrack.new(@fixture_path)
+    original_rms = track.rms
+
+    # Boost everything above 4000Hz by 3.0 decibels
+    result = track.high_shelf!(4000, 3.0, 0.707)
+
+    assert_same track, result, 'high_shelf! must return the track instance for chaining'
+    refute_equal original_rms, track.rms, 'High-shelf filter did not mutate the audio data'
+  end
+
+  def test_low_pass_bang_attenuates_high_frequencies
+    track = RubyDSP::AudioTrack.new('', 1, 44_100)
+    track.add_wave!('sine', 5000.0, 1.0) # 5kHz high-pitched wave
+    original_rms = track.rms[0]
+
+    # Apply 500Hz low-pass filter
+    result = track.low_pass!(500)
+
+    assert_same track, result, 'low_pass! must return self'
+    # The high frequency should be heavily attenuated
+    assert track.rms[0] < (original_rms * 0.2), 'Low-pass did not attenuate the 5kHz wave enough'
+  end
+
+  def test_high_pass_bang_attenuates_low_frequencies
+    track = RubyDSP::AudioTrack.new('', 1, 44_100)
+    track.add_wave!('sine', 100.0, 1.0) # 100Hz low bass wave
+    original_rms = track.rms[0]
+
+    # Apply 1000Hz high-pass filter
+    track.high_pass!(1000)
+
+    # The low frequency should be heavily attenuated
+    assert track.rms[0] < (original_rms * 0.2), 'High-pass did not attenuate the 100Hz wave enough'
+  end
+
+  def test_notch_bang_surgically_removes_target_frequency
+    track = RubyDSP::AudioTrack.new('', 1, 44_100)
+    # Generate 60Hz hum
+    track.add_wave!('sine', 60.0, 1.0)
+    original_rms = track.rms[0]
+
+    # Notch out exactly 60Hz
+    track.notch!(60, 0.707)
+
+    # The wave should be almost entirely wiped out
+    assert track.rms[0] < (original_rms * 0.05), 'Notch filter failed to remove the target 60Hz frequency'
+  end
+
+  def test_peak_eq_bang_boosts_target_frequency
+    track = RubyDSP::AudioTrack.new('', 1, 44_100)
+    track.add_wave!('sine', 1000.0, 1.0, 0.0, 0.2)
+    original_rms = track.rms[0]
+
+    track.peak_eq!(1000, 12.0, 0.707)
+
+    assert track.rms[0] > original_rms, 'Peak EQ did not boost the target frequency'
+  end
+
+  def test_band_pass_bang_allows_target_and_cuts_rest
+    track = RubyDSP::AudioTrack.new('', 1, 44_100)
+    track.add_wave!('sine', 100.0, 1.0)
+         .add_wave!('sine', 1000.0, 1.0, 0.0)
+         .add_wave!('sine', 5000.0, 1.0, 0.0)
+
+    track.band_pass!(1000)
+
+    assert track.rms[0] > 0.1, 'Band-pass killed the target frequency band'
+  end
+
+  def test_low_pass_bang_attenuates_highs_preserves_lows
+    # Track 1: High freq (Should be killed by Low-Pass)
+    high_track = RubyDSP::AudioTrack.new('', 1, 44_100).add_wave!('sine', 5000.0, 1.0, 0.0, 0.5)
+    orig_high_rms = high_track.rms[0]
+    high_track.low_pass!(1000)
+    assert high_track.rms[0] < (orig_high_rms * 0.2), 'Low-pass should heavily attenuate 5kHz'
+
+    # Track 2: Low freq (Should be preserved by Low-Pass)
+    low_track = RubyDSP::AudioTrack.new('', 1, 44_100).add_wave!('sine', 100.0, 1.0, 0.0, 0.5)
+    orig_low_rms = low_track.rms[0]
+    low_track.low_pass!(1000)
+    assert_in_delta orig_low_rms, low_track.rms[0], 0.05, 'Low-pass should preserve 100Hz'
+  end
+
+  def test_high_pass_bang_attenuates_lows_preserves_highs
+    # Track 1: Low freq (Should be killed by High-Pass)
+    low_track = RubyDSP::AudioTrack.new('', 1, 44_100).add_wave!('sine', 100.0, 1.0, 0.0, 0.5)
+    orig_low_rms = low_track.rms[0]
+    result = low_track.high_pass!(1000)
+    assert_same low_track, result, 'high_pass! must return self for chaining'
+    assert low_track.rms[0] < (orig_low_rms * 0.2), 'High-pass should heavily attenuate 100Hz'
+
+    # Track 2: High freq (Should be preserved by High-Pass)
+    high_track = RubyDSP::AudioTrack.new('', 1, 44_100).add_wave!('sine', 5000.0, 1.0, 0.0, 0.5)
+    orig_high_rms = high_track.rms[0]
+    high_track.high_pass!(1000)
+    assert_in_delta orig_high_rms, high_track.rms[0], 0.05, 'High-pass should preserve 5kHz'
+  end
+
+  def test_band_pass_bang_preserves_center_attenuates_edges
+    # Center frequency
+    center_track = RubyDSP::AudioTrack.new('', 1, 44_100).add_wave!('sine', 1000.0, 1.0, 0.0, 0.5)
+    orig_center = center_track.rms[0]
+    center_track.band_pass!(1000)
+    assert center_track.rms[0] > (orig_center * 0.65), 'Band-pass should preserve most of the center frequency'
+
+    # Edge frequency
+    edge_track = RubyDSP::AudioTrack.new('', 1, 44_100).add_wave!('sine', 100.0, 1.0, 0.0, 0.5)
+    orig_edge = edge_track.rms[0]
+    edge_track.band_pass!(1000)
+    assert edge_track.rms[0] < (orig_edge * 0.5), 'Band-pass should attenuate frequencies outside the band'
+  end
+
+  def test_notch_bang_removes_center_preserves_edges
+    # The exact target to cut
+    center_track = RubyDSP::AudioTrack.new('', 1, 44_100).add_wave!('sine', 60.0, 1.0, 0.0, 0.5)
+    orig_center = center_track.rms[0]
+    center_track.notch!(60, 0.707)
+    assert center_track.rms[0] < (orig_center * 0.1), 'Notch should eliminate the target frequency'
+
+    # A frequency far away
+    edge_track = RubyDSP::AudioTrack.new('', 1, 44_100).add_wave!('sine', 1000.0, 1.0, 0.0, 0.5)
+    orig_edge = edge_track.rms[0]
+    edge_track.notch!(60, 0.707)
+    assert_in_delta orig_edge, edge_track.rms[0], 0.05, 'Notch should preserve frequencies outside the cut'
+  end
+
+  def test_peak_eq_bang_boosts_and_cuts
+    # Test Boosting
+    boost_track = RubyDSP::AudioTrack.new('', 1, 44_100).add_wave!('sine', 1000.0, 1.0, 0.0, 0.2)
+    orig_boost = boost_track.rms[0]
+    boost_track.peak_eq!(1000, 12.0, 0.707) # +12dB boost
+    assert boost_track.rms[0] > (orig_boost * 2.0), 'Peak EQ should significantly boost the target frequency'
+
+    # Test Cutting
+    cut_track = RubyDSP::AudioTrack.new('', 1, 44_100).add_wave!('sine', 1000.0, 1.0, 0.0, 0.8)
+    orig_cut = cut_track.rms[0]
+    cut_track.peak_eq!(1000, -12.0, 0.707) # -12dB cut
+    assert cut_track.rms[0] < (orig_cut * 0.5), 'Peak EQ should significantly cut the target frequency'
+  end
+
+  def test_low_shelf_bang_affects_lows_preserves_highs
+    # Lows (Boost)
+    low_track = RubyDSP::AudioTrack.new('', 1, 44_100).add_wave!('sine', 100.0, 1.0, 0.0, 0.2)
+    orig_low = low_track.rms[0]
+    low_track.low_shelf!(500, 12.0, 0.707)
+    assert low_track.rms[0] > (orig_low * 1.5), 'Low shelf should boost frequencies below cutoff'
+
+    # Highs (Preserve)
+    high_track = RubyDSP::AudioTrack.new('', 1, 44_100).add_wave!('sine', 5000.0, 1.0, 0.0, 0.2)
+    orig_high = high_track.rms[0]
+    high_track.low_shelf!(500, 12.0, 0.707)
+    assert_in_delta orig_high, high_track.rms[0], 0.05, 'Low shelf should preserve frequencies above cutoff'
+  end
+
+  def test_high_shelf_bang_affects_highs_preserves_lows
+    # Highs (Cut)
+    high_track = RubyDSP::AudioTrack.new('', 1, 44_100).add_wave!('sine', 5000.0, 1.0, 0.0, 0.8)
+    orig_high = high_track.rms[0]
+    high_track.high_shelf!(1000, -12.0, 0.707)
+    assert high_track.rms[0] < (orig_high * 0.5), 'High shelf should cut frequencies above cutoff'
+
+    # Lows (Preserve)
+    low_track = RubyDSP::AudioTrack.new('', 1, 44_100).add_wave!('sine', 100.0, 1.0, 0.0, 0.8)
+    orig_low = low_track.rms[0]
+    low_track.high_shelf!(1000, -12.0, 0.707)
+    assert_in_delta orig_low, low_track.rms[0], 0.05, 'High shelf should preserve frequencies below cutoff'
+  end
 end

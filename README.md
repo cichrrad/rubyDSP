@@ -1,4 +1,4 @@
-# [RubyDSP](https://github.com/cichrrad/rubyDSP) | [Documentation](https://www.rubydoc.info/gems/ruby_dsp/0.0.7)
+# [RubyDSP](https://github.com/cichrrad/rubyDSP) | [Documentation](https://www.rubydoc.info/gems/ruby_dsp/0.0.8)
 
 [![Ruby CI](https://github.com/cichrrad/rubyDSP/actions/workflows/test.yml/badge.svg)](https://github.com/cichrrad/rubyDSP/actions/workflows/test.yml)
 
@@ -19,12 +19,24 @@ I made this gem to try hands-on binding these two languages together, as I would
 
 * **Audio Synthesis & Sequencing:** Build multitrack, polyphonic audio from scratch using a (very limited) set of built-in mathematically generated waveforms (sine, square, sawtooth, and white noise).
 
+* **DSP Filters & EQ:** A suite of filters (Low-pass, High-pass, Band-pass, Notch, and Shelving EQs) via `miniaudio`.
+
 * **Format Agnostic Loading:** Automatically decodes standard audio formats (WAV, MP3, FLAC) via `miniaudio`.
 > **Note:** While the loading of these formats is supported, `miniaudio` saves only in `.wav`. While other encodings might be considered in the future, they would require more dependencies and thus are not available right now.
 
 * **Zero-Dependency Native Build:** No need to install `ffmpeg` or `libsndfile` on your system.
 
 * **YARD Support:** Includes pure-Ruby stubs (in `stubs`, duh) for IDE autocomplete and inline documentation.
+
+## Overview of Capabilities
+
+* **File Operations:** `save_track`
+* **Mutations:** `to_mono!`, `resample!`, `trim_silence!`, `normalize!`, `fade_in!`, `fade_out!`, `pad!`, `pad_to_duration!`, `clip!`
+* **DSP Filters:** `low_pass!`, `high_pass!`, `band_pass!`, `notch!`, `peak_eq!`, `low_shelf!`, `high_shelf!`
+* **Synthesis:** `add_wave!`
+* **Analysis:** `duration`, `peak_amp`, `rms`, `framed_rms`, `zcr`, `framed_zcr`, `silence_bounds`
+
+*(For full parameters and usage, please check the [API Documentation](https://www.rubydoc.info/gems/ruby_dsp/0.0.8))*
 
 ## Benchmarks & Performance
 
@@ -41,10 +53,10 @@ Benchmark script files are in `benchmark` directory. If you clone the repo for d
 -----------------------------------------------------------------------------------------------
 | Benchmark                 | C++ Speedup  | Ruby Allocation        | C++ Allocation         |
 -----------------------------------------------------------------------------------------------
-| Read-Only (RMS)           | 49.07x       | 40 B (1 obj)           | 64 B (1 obj)           |
-| Mutation (Normalize)      | 462.51x      | 3,528,040 B (1 obj)    | 0 B (0 obj)            |
-| Complex (Framed RMS)      | 49.25x       | 41,264 B (860 obj)     | 64 B (1 obj)           |
-| Dynamic (Add Wave)        | 11.73x       | N/A                    | N/A                    |
+| Read-Only (RMS)           | 48.71x       | 40 B (1 obj)           | 64 B (1 obj)           |
+| Mutation (Normalize)      | 69.47x       | 3,528,040 B (1 obj)    | 0 B (0 obj)            |
+| Complex (Framed RMS)      | 48.68x       | 41,264 B (860 obj)     | 64 B (1 obj)           |
+| Dynamic (Add Wave)        | 11.67x       | N/A                    | N/A                    |
 -----------------------------------------------------------------------------------------------
 ```
 ### Why is it faster?
@@ -75,7 +87,7 @@ $ gem install ruby_dsp
 
 *(Note: Installing this gem requires a modern C++ compiler, as it builds the native extensions directly on your machine upon installation. It requires Ruby 3.0+).*
 
-## Quick Start: Audio Processing
+## Audio Processing
 
 Here is a quick look at what you can do with a loaded `AudioTrack`. Thanks to the fluent API, you can process audio in a single readable chain:
 
@@ -91,6 +103,8 @@ puts track
 # Process, edit, and save in one chain
 track.to_mono!                       # Averages channels into mono
      .resample!(44100)               # Linearly resamples to target rate
+     .high_pass!(100)                # Cuts out low-end rumble below 100Hz
+     .peak_eq!(1000, 3.0)            # Boosts 1000Hz by 3dB for vocal clarity
      .trim_silence!(-60.0)           # Strips leading/trailing silence below -60dB
      .normalize!(-1.0)               # Scales audio to target peak dBFS
      .pad_to_duration!(15.0)         # Centers audio evenly into a 15s window
@@ -98,7 +112,7 @@ track.to_mono!                       # Averages channels into mono
      .fade_out!(0.5)                 # Adds a 0.5s linear fade-out
      .save_track("processed.wav")    # Export the final result
 
-# Analysis & Math (Still works!)
+# Analysis & Math
 puts "Peak Amp: #{track.peak_amp}"
 puts "Overall RMS: #{track.rms}"
 puts "Overall ZCR: #{track.zcr}"
@@ -107,7 +121,7 @@ puts "Overall ZCR: #{track.zcr}"
 framed_rms_data = track.framed_rms(frame_length: 2048, hop_length: 512)
 ```
 
-## Quick Start: Synthesis & Sequencing
+## Synthesis & Sequencing
 
 Initialize an empty track and generate your own jam using `add_wave!`:
 
@@ -133,26 +147,15 @@ track.normalize!(-30.0)  # This goes a long way for your hearing
 
 #### **TWINKLE**
 
-
-
 https://github.com/user-attachments/assets/af6dbaee-630f-49e3-9704-8ff3440334cb
-
-
 
 #### **TETRIS**
 
-
-
 https://github.com/user-attachments/assets/b3ad6886-3552-4200-b725-f14083f96792
-
-
 
 #### **SUPER MARIO BROS**
 
-
-
 https://github.com/user-attachments/assets/5193d72d-4c32-4c83-8253-206402ac2889
-
 
 
 ## Development

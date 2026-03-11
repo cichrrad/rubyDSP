@@ -170,7 +170,7 @@ struct AudioTrack
         float max_val = 0.0f;
         for (const auto &sample : samples)
         {
-            max_val = std::max(max_val, std::fabs(sample));
+            max_val = std::fmax(max_val, std::fabs(sample));
         }
         return max_val;
     }
@@ -592,7 +592,7 @@ struct AudioTrack
         float scale_factor = target_linear / current_peak;
 
         // already at the target peak -- do nothing
-        if (std::abs(scale_factor - 1.0f) < 1e-5f)
+        if (std::fabs(scale_factor - 1.0f) < 1e-5f)
             return *this;
 
         for (auto &sample : samples)
@@ -662,18 +662,13 @@ struct AudioTrack
         unsigned long long head_samples = head_frames * channels;
         unsigned long long tail_samples = tail_frames * channels;
 
-        // pad the beginning
-        if (head_samples > 0)
-        {
-            samples.insert(samples.begin(), head_samples, 0.0f);
-        }
+        // calculate total new size
+        unsigned long long new_size = head_samples + sample_count + tail_samples;
+        std::vector<float> new_samples(new_size, 0.0f);
 
-        // pad the end
-        if (tail_samples > 0)
-        {
-            samples.insert(samples.end(), tail_samples, 0.0f);
-        }
-
+        // move old samples in
+        std::move(samples.begin(), samples.end(), new_samples.begin() + head_samples);
+        samples = std::move(new_samples);
         sample_count = samples.size();
 
         return *this;
@@ -700,18 +695,12 @@ struct AudioTrack
         unsigned long long head_samples = head_frames * channels;
         unsigned long long tail_samples = tail_frames * channels;
 
-        // pad the beginning
-        if (head_samples > 0)
-        {
-            samples.insert(samples.begin(), head_samples, 0.0f);
-        }
+        unsigned long long new_size = head_samples + sample_count + tail_samples;
+        std::vector<float> new_samples(new_size, 0.0f);
 
-        // pad the end
-        if (tail_samples > 0)
-        {
-            samples.insert(samples.end(), tail_samples, 0.0f);
-        }
-
+        // move old samples in
+        std::move(samples.begin(), samples.end(), new_samples.begin() + head_samples);
+        samples = std::move(new_samples);
         sample_count = samples.size();
 
         return *this;
@@ -771,6 +760,137 @@ struct AudioTrack
                 samples[current_idx * channels + c] += sample_val;
             }
         }
+
+        return *this;
+    }
+
+    AudioTrack &clip_bang()
+    {
+        for (auto &s : samples)
+        {
+            s = std::clamp(s, -1.0f, 1.0f);
+        }
+        return *this;
+    }
+
+    AudioTrack &low_pass_bang(int cutoffFreq)
+    {
+        // High order low-pass filter (Butterworth)
+        // [https://miniaud.io/docs/manual/index.html#Filtering]
+        ma_lpf lpf;
+        ma_lpf_config config;
+
+        // last argument is MA_MAX_FILTER_ORDER, goes up to 4?
+        config = ma_lpf_config_init(ma_format_f32, channels, sample_rate, (double)cutoffFreq, 2);
+
+        if (ma_lpf_init(&config, NULL, &lpf) != MA_SUCCESS)
+        {
+            throw std::runtime_error("RubyDSP: Failed to initialize low-pass filter.");
+        }
+
+        // in-place filtering
+        unsigned long long frame_count = sample_count / channels;
+        ma_lpf_process_pcm_frames(&lpf, samples.data(), samples.data(), frame_count);
+        ma_lpf_uninit(&lpf, NULL);
+
+        return *this;
+    }
+
+    AudioTrack &high_pass_bang(int cutoff_freq)
+    {
+        ma_hpf hpf;
+        // 2nd order high-pass
+        ma_hpf_config config = ma_hpf_config_init(ma_format_f32, channels, sample_rate, (double)cutoff_freq, 2);
+
+        if (ma_hpf_init(&config, NULL, &hpf) != MA_SUCCESS)
+        {
+            throw std::runtime_error("RubyDSP: Failed to initialize high-pass filter.");
+        }
+
+        unsigned long long frame_count = sample_count / channels;
+        ma_hpf_process_pcm_frames(&hpf, samples.data(), samples.data(), frame_count);
+
+        return *this;
+    }
+
+    AudioTrack &band_pass_bang(int cutoff_freq)
+    {
+        ma_bpf bpf;
+        // order MUST be even for band-pass
+        // [https://miniaud.io/docs/manual/index.html#Filtering]
+        ma_bpf_config config = ma_bpf_config_init(ma_format_f32, channels, sample_rate, (double)cutoff_freq, 2);
+
+        if (ma_bpf_init(&config, NULL, &bpf) != MA_SUCCESS)
+        {
+            throw std::runtime_error("RubyDSP: Failed to initialize band-pass filter.");
+        }
+
+        unsigned long long frame_count = sample_count / channels;
+        ma_bpf_process_pcm_frames(&bpf, samples.data(), samples.data(), frame_count);
+
+        return *this;
+    }
+
+    AudioTrack &notch_bang(int center_freq, double q = 0.707)
+    {
+        ma_notch2 notch;
+        ma_notch2_config config = ma_notch2_config_init(ma_format_f32, channels, sample_rate, q, (double)center_freq);
+
+        if (ma_notch2_init(&config, NULL, &notch) != MA_SUCCESS)
+        {
+            throw std::runtime_error("RubyDSP: Failed to initialize notch filter.");
+        }
+
+        unsigned long long frame_count = sample_count / channels;
+        ma_notch2_process_pcm_frames(&notch, samples.data(), samples.data(), frame_count);
+
+        return *this;
+    }
+
+    AudioTrack &peak_eq_bang(int center_freq, double gain_db, double q = 0.707)
+    {
+        ma_peak2 peak;
+        ma_peak2_config config = ma_peak2_config_init(ma_format_f32, channels, sample_rate, gain_db, q, (double)center_freq);
+
+        if (ma_peak2_init(&config, NULL, &peak) != MA_SUCCESS)
+        {
+            throw std::runtime_error("RubyDSP: Failed to initialize peaking EQ filter.");
+        }
+
+        unsigned long long frame_count = sample_count / channels;
+        ma_peak2_process_pcm_frames(&peak, samples.data(), samples.data(), frame_count);
+
+        return *this;
+    }
+
+    AudioTrack &low_shelf_bang(int cutoff_freq, double gain_db, double q = 0.707)
+    {
+        ma_loshelf2 shelf;
+        ma_loshelf2_config config = ma_loshelf2_config_init(ma_format_f32, channels, sample_rate, gain_db, q, (double)cutoff_freq);
+
+        if (ma_loshelf2_init(&config, NULL, &shelf) != MA_SUCCESS)
+        {
+            throw std::runtime_error("RubyDSP: Failed to initialize low-shelf filter.");
+        }
+
+        unsigned long long frame_count = sample_count / channels;
+        ma_loshelf2_process_pcm_frames(&shelf, samples.data(), samples.data(), frame_count);
+
+        return *this;
+    }
+
+    AudioTrack &high_shelf_bang(int cutoff_freq, double gain_db, double q = 0.707)
+    {
+        ma_hishelf2 shelf;
+        ma_hishelf2_config config = ma_hishelf2_config_init(ma_format_f32, channels, sample_rate, gain_db, q, (double)cutoff_freq);
+
+        if (ma_hishelf2_init(&config, NULL, &shelf) != MA_SUCCESS)
+        {
+            throw std::runtime_error("RubyDSP: Failed to initialize high-shelf filter.");
+        }
+
+        unsigned long long frame_count = sample_count / channels;
+        ma_hishelf2_process_pcm_frames(&shelf, samples.data(), samples.data(), frame_count);
 
         return *this;
     }
@@ -849,5 +969,27 @@ extern "C"
                                                               Arg("duration_sec"),
                                                               Arg("start_sec") = -1.0f,
                                                               Arg("amplitude") = 1.0f)
+                                               .define_method("clip!", &AudioTrack::clip_bang)
+                                               .define_method("low_pass!", &AudioTrack::low_pass_bang,
+                                                              Arg("cutoff_freq"))
+                                               .define_method("high_pass!", &AudioTrack::high_pass_bang,
+                                                              Arg("cutoff_freq"))
+                                               .define_method("band_pass!", &AudioTrack::band_pass_bang,
+                                                              Arg("cutoff_freq"))
+                                               .define_method("notch!", &AudioTrack::notch_bang,
+                                                              Arg("center_freq"),
+                                                              Arg("q") = 0.707)
+                                               .define_method("peak_eq!", &AudioTrack::peak_eq_bang,
+                                                              Arg("center_freq"),
+                                                              Arg("gain_db"),
+                                                              Arg("q") = 0.707)
+                                               .define_method("low_shelf!", &AudioTrack::low_shelf_bang,
+                                                              Arg("cutoff_freq"),
+                                                              Arg("gain_db"),
+                                                              Arg("q") = 0.707)
+                                               .define_method("high_shelf!", &AudioTrack::high_shelf_bang,
+                                                              Arg("cutoff_freq"),
+                                                              Arg("gain_db"),
+                                                              Arg("q") = 0.707)
                                                .define_method("to_s", &AudioTrack::to_s);
 }
