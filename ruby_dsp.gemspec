@@ -21,6 +21,9 @@ Gem::Specification.new do |s|
 
   s.add_dependency 'rice', '~> 4.11.2'
 
+  s.add_development_dependency 'benchmark', '~> 0.5.0'
+  s.add_development_dependency 'benchmark-ips', '~> 2.14'
+  s.add_development_dependency 'memory_profiler', '~> 1.1'
   s.add_development_dependency 'minitest', '~> 6.0'
   s.add_development_dependency 'rack', '~> 3.2'
   s.add_development_dependency 'rackup', '~> 2.3'

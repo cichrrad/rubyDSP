@@ -762,7 +762,6 @@ struct AudioTrack
             {
                 sample_val = ((float)std::rand() / RAND_MAX) * 2.0f - 1.0f;
             }
-
             sample_val *= amplitude;
 
             // Mix into all channels at the correct offset
