@@ -12,6 +12,10 @@
 
 I made this gem to try [Rice](https://github.com/jasonroelofs/rice), as I would like to be able to bring some C++ speed to Ruby, oh my beloved....
 
+---
+
+Note that AI (Gemini) was used in the developement of this software, albeit only partially and with supervision and testing. If this goes against your ideals, I am sorry.
+
 ## Features
 
 * **Fast:** Basically all of the code is written in C++. While not extremely optimized currently, it still absolutely shreds native Ruby.
