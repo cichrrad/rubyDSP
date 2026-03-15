@@ -36,7 +36,7 @@ I made this gem to try hands-on binding these two languages together, as I would
 * **Synthesis:** `add_wave!`
 * **Analysis:** `duration`, `peak_amp`, `rms`, `framed_rms`, `zcr`, `framed_zcr`, `silence_bounds`
 
-*(For full parameters and usage, please check the [API Documentation](https://www.rubydoc.info/gems/ruby_dsp/0.0.8))*
+*(For full parameters and usage, please check the [API Documentation](https://www.rubydoc.info/gems/ruby_dsp/0.0.9))*
 
 ## Benchmarks & Performance
 
