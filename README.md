@@ -1,8 +1,8 @@
-# [RubyDSP](https://github.com/cichrrad/rubyDSP) | [Documentation](https://www.rubydoc.info/gems/ruby_dsp/0.0.8)
+# [RubyDSP](https://github.com/cichrrad/rubyDSP) | [Documentation](https://www.rubydoc.info/gems/ruby_dsp/0.0.9)
 
 [![Ruby CI](https://github.com/cichrrad/rubyDSP/actions/workflows/test.yml/badge.svg)](https://github.com/cichrrad/rubyDSP/actions/workflows/test.yml)
 
-> 🚧 **Status:** This (***HOBBY***) project is currently in early development. It is hopefully functional, but API changes are expected. There is no warranty regarding anything 🗿.
+> 🚧 **Status:** This (***HOBBY***) project is currently in early development. It is functional, but API changes are expected. There is no warranty regarding anything 🗿.
 
 ---
 
@@ -30,7 +30,7 @@ I made this gem to try hands-on binding these two languages together, as I would
 
 ## Overview of Capabilities
 
-* **File Operations:** `save_track`
+* **File Operations:** `save_track`, `dup`
 * **Mutations:** `to_mono!`, `resample!`, `trim_silence!`, `normalize!`, `fade_in!`, `fade_out!`, `pad!`, `pad_to_duration!`, `clip!`
 * **DSP Filters:** `low_pass!`, `high_pass!`, `band_pass!`, `notch!`, `peak_eq!`, `low_shelf!`, `high_shelf!`
 * **Synthesis:** `add_wave!`

@@ -767,4 +767,54 @@ class RubyDSPTest < Minitest::Test
     low_track.high_shelf!(1000, -12.0, 0.707)
     assert_in_delta orig_low, low_track.rms[0], 0.05, 'High shelf should preserve frequencies below cutoff'
   end
+
+  def test_dup_creates_deep_copy
+    original = RubyDSP::AudioTrack.new(@fixture_path)
+    copy = original.dup
+
+    # verify identical starting states
+    assert_equal original.duration, copy.duration
+    assert_equal original.sample_count, copy.sample_count
+
+    # mutate the copy
+    copy.normalize!(0.0).fade_in!(0.5)
+
+    # verify they are independent in memory
+    refute_equal original.peak_amp, copy.peak_amp
+
+    # check a sample midway through the fade
+    test_index = (0.25 * copy.sample_rate * copy.channels).to_i
+    refute_equal original.samples[test_index], copy.samples[test_index]
+  end
+
+  def test_windowing_loads_correct_duration
+    track = RubyDSP::AudioTrack.new(@fixture_path, 0, 0, 0.0, 1.5)
+
+    assert_in_delta 1.5, track.duration, 0.001
+  end
+
+  def test_windowing_seeks_correctly
+    full_track = RubyDSP::AudioTrack.new(@fixture_path)
+
+    # 0.5 second snippet starting at 1.0 seconds
+    snippet = RubyDSP::AudioTrack.new(@fixture_path, 0, 0, 1.0, 0.5)
+
+    assert_in_delta 0.5, snippet.duration, 0.001
+
+    # exact sample index where 1.0 seconds starts in the full track
+    start_sample_idx = (1.0 * full_track.sample_rate).to_i * full_track.channels
+
+    # first sample of the snippet should perfectly match the full track at the 1.0s mark
+    assert_in_delta full_track.samples[start_sample_idx], snippet.samples.first, 0.0001
+  end
+
+  def test_windowing_handles_out_of_bounds_gracefully
+    full_track = RubyDSP::AudioTrack.new(@fixture_path)
+
+    # ask for 10 seconds starting past the end of the file
+    track = RubyDSP::AudioTrack.new(@fixture_path, 0, 0, full_track.duration + 50.0, 10.0)
+
+    assert_equal 0.0, track.duration
+    assert_empty track.samples
+  end
 end

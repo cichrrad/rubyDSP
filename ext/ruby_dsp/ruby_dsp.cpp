@@ -34,9 +34,33 @@ struct AudioTrack
     std::vector<float> samples;
     unsigned long long sample_count = 0;
 
-    AudioTrack(std::string f, unsigned int target_channels = 0, unsigned int target_sample_rate = 0) : filename(f)
-    {
+    // static float get_file_duration(std::string filename)
+    // {
+    //     if (filename.empty())
+    //         return 0.0f;
 
+    //     ma_decoder decoder;
+    //     // NULL config means it reads the file's native format/rate
+    //     if (ma_decoder_init_file(filename.c_str(), NULL, &decoder) != MA_SUCCESS)
+    //     {
+    //         throw std::runtime_error("RubyDSP: Could not process audio file for duration: " + filename);
+    //     }
+
+    //     ma_uint64 totalFrames;
+    //     if (ma_decoder_get_length_in_pcm_frames(&decoder, &totalFrames) != MA_SUCCESS)
+    //     {
+    //         ma_decoder_uninit(&decoder);
+    //         throw std::runtime_error("RubyDSP: Could not determine track length.");
+    //     }
+
+    //     int sample_rate = decoder.outputSampleRate;
+    //     ma_decoder_uninit(&decoder);
+
+    //     return (float)totalFrames / sample_rate;
+    // }
+
+    AudioTrack(std::string f, unsigned int target_channels = 0, unsigned int target_sample_rate = 0, float start_sec = 0.0f, float duration_sec = 0.0f) : filename(f)
+    {
         // empty constructor
         if (filename.empty())
         {
@@ -70,14 +94,49 @@ struct AudioTrack
             throw std::runtime_error("RubyDSP: Could not determine track length.");
         }
 
-        sample_count = totalFrames * channels;
+        ma_uint64 start_frame = (ma_uint64)(start_sec * sample_rate);
+        if (start_frame > totalFrames)
+        {
+            start_frame = totalFrames; // Prevent seeking past EOF
+        }
+
+        if (start_frame > 0)
+        {
+            if (ma_decoder_seek_to_pcm_frame(&decoder, start_frame) != MA_SUCCESS)
+            {
+                ma_decoder_uninit(&decoder);
+                throw std::runtime_error("RubyDSP: Could not seek to start frame.");
+            }
+        }
+
+        ma_uint64 framesToRead = totalFrames - start_frame;
+        if (duration_sec > 0.0f)
+        {
+            ma_uint64 requestedFrames = (ma_uint64)(duration_sec * sample_rate);
+            if (requestedFrames < framesToRead)
+            {
+                framesToRead = requestedFrames;
+            }
+        }
+
+        sample_count = framesToRead * channels;
         samples.resize(sample_count);
 
-        ma_uint64 framesRead;
-        if (ma_decoder_read_pcm_frames(&decoder, samples.data(), totalFrames, &framesRead) != MA_SUCCESS)
+        if (framesToRead > 0)
         {
-            ma_decoder_uninit(&decoder);
-            throw std::runtime_error("RubyDSP: Failed to read PCM data.");
+            ma_uint64 framesRead;
+            if (ma_decoder_read_pcm_frames(&decoder, samples.data(), framesToRead, &framesRead) != MA_SUCCESS)
+            {
+                ma_decoder_uninit(&decoder);
+                throw std::runtime_error("RubyDSP: Failed to read PCM data.");
+            }
+
+            // Shrink vector if we hit EOF earlier than expected
+            if (framesRead < framesToRead)
+            {
+                sample_count = framesRead * channels;
+                samples.resize(sample_count);
+            }
         }
 
         ma_decoder_uninit(&decoder);
@@ -904,6 +963,11 @@ struct AudioTrack
                << sample_rate << "Hz sample rate]";
         return stream.str();
     }
+
+    AudioTrack dup()
+    {
+        return *this;
+    }
 };
 
 extern "C"
@@ -916,10 +980,12 @@ extern "C"
 {
     Module rb_mRubyDSP = define_module("RubyDSP");
     Data_Type<AudioTrack> rb_cAudioTrack = define_class_under<AudioTrack>(rb_mRubyDSP, "AudioTrack")
-                                               .define_constructor(Constructor<AudioTrack, std::string, unsigned int, unsigned int>(),
+                                               .define_constructor(Constructor<AudioTrack, std::string, unsigned int, unsigned int, float, float>(),
                                                                    Arg("file_name") = (std::string) "",
                                                                    Arg("target_channels") = (unsigned int)0,
-                                                                   Arg("target_sample_rate") = (unsigned int)0)
+                                                                   Arg("target_sample_rate") = (unsigned int)0,
+                                                                   Arg("start_sec") = 0.0f,
+                                                                   Arg("duration_sec") = 0.0f)
                                                // attributes
                                                .define_attr("file_name", &AudioTrack::filename, Rice::AttrAccess::Read)
                                                .define_attr("channels", &AudioTrack::channels, Rice::AttrAccess::Read)
@@ -991,5 +1057,7 @@ extern "C"
                                                               Arg("cutoff_freq"),
                                                               Arg("gain_db"),
                                                               Arg("q") = 0.707)
-                                               .define_method("to_s", &AudioTrack::to_s);
+                                               .define_method("to_s", &AudioTrack::to_s)
+                                               .define_method("dup", &AudioTrack::dup)
+                                               .define_method("clone", &AudioTrack::dup);
 }
