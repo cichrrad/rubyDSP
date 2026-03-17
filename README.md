@@ -95,7 +95,7 @@ Here is a quick look at what you can do with a loaded `AudioTrack`. Thanks to th
 require 'ruby_dsp'
 
 # Load an audio file
-track = RubyDSP::AudioTrack.new("raw_voC++ backend cals.wav")
+track = RubyDSP::AudioTrack.new("raw_vocals.wav")
 
 puts track 
 # => ['raw_vocals.wav', 12.450s duration, 2 channel(s), 48000Hz sample rate]
